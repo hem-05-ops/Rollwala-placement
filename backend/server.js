@@ -23,17 +23,15 @@ const app = express();
 
 // Enable CORS for local dev and production
 const allowedOrigins = [
-  "http://localhost:5173",
-  "http://127.0.0.1:5173",
+  "http://localhost:5000",
+  "http://127.0.0.1:5000",
+  "http://0.0.0.0:5000",
+  "https://replit.com",
+  "https://e10730a0-4104-441d-9f49-ca3437b497e7-00-1dst8xktgq1m2.sisko.replit.dev",
   // "https://pms-cgc-u.vercel.app",
 ];
 const corsOptions = {
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    return callback(new Error("Not allowed by CORS"));
-  },
+  origin: true, // Allow all origins in development
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   credentials: true,
   allowedHeaders: ["Content-Type", "Authorization"],
@@ -68,8 +66,8 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/admin-management", adminManagementRoutes);
 
 // Start server
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, "localhost", () => {
+  console.log(`🚀 Server running on localhost:${PORT}`);
   console.log(`📁 Serving assets from: ${path.join(__dirname, '../../frontend/src/assets')}`);
 });

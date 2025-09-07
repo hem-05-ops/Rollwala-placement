@@ -2,10 +2,11 @@ const mongoose = require("mongoose");
 
 const connectDB = async () => {
   try {
-    console.log("Mongo URI:", process.env.MONGO_URI);
+    const mongoURI = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/placement';
+    console.log("Mongo URI:", mongoURI);
     
     // Remove the dbName option or set it to "placement"
-    await mongoose.connect(process.env.MONGO_URI, {
+    await mongoose.connect(mongoURI, {
       // Remove this line or change to: dbName: "placement",
       retryWrites: true,
       w: "majority",

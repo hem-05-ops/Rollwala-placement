@@ -6,11 +6,11 @@ import "./contact.css";
 // Executive Director
 // Import images correctly (adjust paths based on your actual file structure)
 import hirenJoshi from "../assets/faculties/hirenJoshi.webp";
-import jyotiPareek from "..//Assets/faculties/jyotiPareek.webp";
-import jayPatel from "..//Assets/faculties/jayPatel.webp";
-import hardikJoshi from "..//Assets/faculties/hardikJoshi.webp";
-import jignaSatani from "..//Assets/faculties/jignaSatani.webp";
-import suchitPurohit from "..//Assets/faculties/suchitPurohit.webp";
+import jyotiPareek from "../assets/faculties/jyotiPareek.webp";
+import jayPatel from "../assets/faculties/jayPatel.webp";
+import hardikJoshi from "../assets/faculties/hardikJoshi.webp";
+import jignaSatani from "../assets/faculties/jignaSatani.webp";
+import suchitPurohit from "../assets/faculties/suchitPurohit.webp";
 // import chiragPujara from "..//Assets/faculties/chiragPujara.webp";
 // Executive Director
 const executiveDirector = {

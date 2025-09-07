@@ -1,0 +1,177 @@
+Hi Replit 👋,
+
+I already have a base project and now I want you to upgrade and complete it fully as a **Placement Management System** using the following updated specification.
+
+👉 Here is the complete system design I want:
+
+# Placement Management System – UI Specification (No Company Role)
+
+## 🌐 Overview:
+A web portal to manage campus placements, used by Students, Faculty, and Admin.  
+Company module is removed — jobs are managed by Admin.
+
+## 👤 User Roles:
+1. Student
+2. Faculty
+3. Admin
+
+---
+
+## 🧩 Pages & Features
+
+### 🏠 Home Page (Public)
+- Welcome banner
+- Login/Register buttons
+- Info about placement portal
+- Stats: Total Students, Jobs, Applications
+- Contact Us / Footer
+
+---
+
+### 🔐 Authentication
+- Login Page
+- Register Page (for Students)
+- Forgot Password
+
+---
+
+### 🧑‍🎓 Student Dashboard
+- View Profile (CGPA, Course, Resume)
+- Edit Profile
+- View Available Jobs (filterable)
+- Apply to Job
+- View Application Status
+- Submit Interview Experience
+- View Interview Experiences
+
+---
+
+### 👨‍🏫 Faculty Dashboard
+- View All Students
+- View Applications
+- View Interview Experiences
+- Approve/Reject Student Profiles (optional)
+- Faculty can see only what is under their role
+
+---
+
+### 🛠️ Admin Dashboard
+- Manage Users (CRUD)
+- Post/Edit/Delete Jobs
+- View All Applications
+- View All Interview Experiences
+- View Activity Logs
+- View Statistics: Jobs Posted, Applications, Students Placed
+- View Charts & Graphs (Pie, Bar, Line)
+- Export Data (CSV, PDF)
+- Admin can see all analytics and full system data
+
+---
+
+## 🗃️ Data Models
+
+### User
+- user_name
+- user_email
+- passwordHash
+- role: [student, faculty, admin]
+
+### Student
+- rollNo
+- course
+- branch
+- year: [1st, 2nd, 3rd, 4th, 5th]
+- cgpa
+- resume
+- contact
+
+### Faculty
+- designation
+- contactNum
+
+### Job (Posted by Admin)
+- type
+- salary_package
+- location
+- description
+- application_deadline
+- eligible_course
+- eligible_branches
+- eligible_year
+- drive_date
+
+### Application
+- student_id
+- job_id
+- applied_at
+- status: [pending, shortlisted, interviewed, selected, rejected]
+
+### Interview Experience
+- submitted_by (Student)
+- experience (rich text)
+
+---
+
+## 🎨 UI Requirements
+- Clean, modern UI
+- Responsive (mobile + desktop)
+- Use dashboard layout with side nav
+- Color scheme: Professional (blue/green tones)
+- Cards for Jobs, Students
+- Tables for Applications, Users
+- Modals for Create/Edit forms
+- Toasts/Alerts for success/error
+
+---
+
+## ✅ Key Actions per Role
+
+### Student:
+- View/apply for jobs
+- Submit experience
+- Track application
+
+### Faculty:
+- Monitor students & interviews
+- View only permitted data
+
+### Admin:
+- Full CRUD access
+- Post/edit/delete jobs
+- View all analytics & activity logs
+
+---
+
+## 🔗 Tech Stack Suggestions
+- Frontend: React.js with Tailwind CSS / Bootstrap
+- Backend: Node.js + MongoDB (Mongoose)
+- Auth: JWT-based login
+- File Upload: Resume upload as PDF
+
+---
+
+✅ Instructions:
+- Use my existing project — modify files instead of starting from scratch
+- Complete all dashboards: Student, Faculty, Admin
+- Implement login/register for Students and Admin
+- Connect with MongoDB (models already defined if needed)
+- UI using React.js + Tailwind CSS (or Bootstrap)
+- Make all pages fully responsive and functional
+- Add resume upload functionality (PDFs)
+- Implement role-based permissions
+- All APIs should follow REST or GraphQL standards
+
+🔐 Add default credentials for testing:
+- Admin: `admin@example.com` / `admin123`
+- Student: `student@example.com` / `student123`
+- Faculty: `faculty@example.com` / `faculty123`
+
+📦 Finally:
+- Export the complete working project to me in a downloadable ZIP format
+- Make sure everything works perfectly
+- Keep folder and file structure clean and modular
+- Allow me to open and edit it locally in **VS Code**
+- Include a `README.md` with setup instructions
+
+Thank you!
+work perfectly and complete at least two modules admin and stuent with all the funtionalities
