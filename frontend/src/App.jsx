@@ -20,6 +20,7 @@ import StudentLogin from "./components/StudentLogin";
 import StudentRegister from "./components/StudentRegister";
 import StudentDashboard from "./components/StudentDashboard";
 import ApplicationManagement from "./components/ApplicationManagement";
+import AdminAnalytics from "./components/AdminAnalytics";
 
 import "../src/index.css";
 
@@ -154,6 +155,14 @@ function App() {
             element={
               <ProtectedRoute requireAdmin={true}>
                 <ApplicationManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin-analytics"
+            element={
+              <ProtectedRoute requireAdmin={true}>
+                <AdminAnalytics />
               </ProtectedRoute>
             }
           />

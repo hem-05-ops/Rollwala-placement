@@ -52,23 +52,17 @@ function Header() {
           <NavLink to="/about" className={({isActive}) => `nav-link${isActive ? ' active' : ''}`}>About</NavLink>
           <NavLink to="/contact" className={({isActive}) => `nav-link${isActive ? ' active' : ''}`}>Contact</NavLink>
           <NavLink to="/jobs" className={({isActive}) => `nav-link${isActive ? ' active' : ''}`}>Jobs</NavLink>
-          <NavLink to="/profile" className={({isActive}) => `nav-link${isActive ? ' active' : ''}`}>Student Profile</NavLink>
-          <NavLink to="/admin-job-posting" className={({isActive}) => `nav-link${isActive ? ' active' : ''}`}>Admin Panel</NavLink>
           <NavLink to="/interview-experience" className={({isActive}) => `nav-link${isActive ? ' active' : ''}`}>Interview Experience</NavLink>
-          {isLoggedIn && (
-            <button 
-              onClick={handleLogout} 
-              className="logout-btn"
-              style={{ marginLeft: "10px" }}
-            >
-              Logout
-            </button>
-          )}
-
-          {/* Theme toggle temporarily removed */}
-          {!isLoggedIn && (
-            <Link to="/signin" className="login-btn">Login</Link>
-          )}
+          
+          {/* Authentication Links */}
+          <div className="auth-dropdown">
+            <span className="dropdown-trigger">Login ▼</span>
+            <div className="dropdown-content">
+              <Link to="/student-login" className="dropdown-item">Student Login</Link>
+              <Link to="/student-register" className="dropdown-item">Student Register</Link>
+              <Link to="/admin-login" className="dropdown-item">Admin Login</Link>
+            </div>
+          </div>
       </nav>
     </header>
   );

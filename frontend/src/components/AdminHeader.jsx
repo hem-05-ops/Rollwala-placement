@@ -48,6 +48,12 @@ const AdminHeader = () => {
                 >
                   🔧 Admin Management
                 </button>
+                <button 
+                  className="nav-btn"
+                  onClick={() => handleNavigation('/admin-analytics')}
+                >
+                  📊 Analytics
+                </button>
               </>
             )}
           </nav>
