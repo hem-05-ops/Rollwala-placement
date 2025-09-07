@@ -16,6 +16,10 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import JobsPage from "./components/jobs";
 import InterviewExperience from "./components/InterviewExperience";
 import ScrollToTop from "./components/ScrollToTop";
+import StudentLogin from "./components/StudentLogin";
+import StudentRegister from "./components/StudentRegister";
+import StudentDashboard from "./components/StudentDashboard";
+import ApplicationManagement from "./components/ApplicationManagement";
 
 import "../src/index.css";
 
@@ -120,6 +124,13 @@ function App() {
             }
           />
 
+          {/* Student Authentication Routes */}
+          <Route path="/student-login" element={<StudentLogin />} />
+          <Route path="/student-register" element={<StudentRegister />} />
+          
+          {/* Student Protected Routes */}
+          <Route path="/student-dashboard" element={<StudentDashboard />} />
+
           {/* Admin Routes */}
           <Route path="/admin-login" element={<AdminLogin />} />
           <Route
@@ -135,6 +146,14 @@ function App() {
             element={
               <ProtectedRoute requireAdmin={true}>
                 <AdminManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/application-management"
+            element={
+              <ProtectedRoute requireAdmin={true}>
+                <ApplicationManagement />
               </ProtectedRoute>
             }
           />

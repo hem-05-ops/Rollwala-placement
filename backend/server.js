@@ -18,6 +18,7 @@ const jobRoutes = require("./routes/jobRoutes");
 const authRoutes = require("./routes/authRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const adminManagementRoutes = require("./routes/adminManagementRoutes");
+const studentRoutes = require("./routes/studentRoutes");
 
 const app = express();
 
@@ -64,6 +65,7 @@ app.use("/api/jobs", jobRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/admin-management", adminManagementRoutes);
+app.use("/api/students", studentRoutes);
 
 // Start server
 const PORT = process.env.PORT || 3000;
