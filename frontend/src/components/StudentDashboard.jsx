@@ -15,6 +15,7 @@ import {
   MessageSquare,
   Clock // Add this import
 } from 'lucide-react';
+import StudentCalendar from './StudentCalendar';
 
 const StudentDashboard = () => {
   const [student, setStudent] = useState(null);
@@ -305,6 +306,7 @@ const fetchStudentData = async () => {
               { id: 'overview', label: 'Overview', icon: User },
               { id: 'jobs', label: 'Available Jobs', icon: Briefcase },
               { id: 'applications', label: 'My Applications', icon: FileText },
+              { id: 'calendar', label: 'Calendar', icon: Calendar },
               { id: 'experiences', label: 'Interview Experiences', icon: MessageSquare }
             ].map(({ id, label, icon: Icon }) => (
               <button
@@ -547,6 +549,11 @@ const fetchStudentData = async () => {
               </ul>
             </div>
           </div>
+        )}
+
+        {/* Calendar Tab */}
+        {activeTab === 'calendar' && (
+          <StudentCalendar />
         )}
 
         {/* Interview Experiences Tab */}

@@ -349,3 +349,122 @@ exports.getEligibleJobs = async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+// Get calendar events for student
+exports.getStudentCalendarEvents = async (req, res) => {
+  try {
+    const student = await Student.findOne({ user: req.user.id });
+    if (!student) {
+      return res.status(404).json({ error: 'Student profile not found' });
+    }
+
+    const events = [];
+    const now = new Date();
+
+    // Get student's applications with scheduled interviews
+    const applications = await Application.find({ 
+      student: student._id,
+      interviewDate: { $gte: now }
+    }).populate('job', 'position companyName location');
+
+    // Add interview events
+    applications.forEach(app => {
+      if (app.interviewDate && app.job) {
+        events.push({
+          id: `interview-${app._id}`,
+          title: `Interview - ${app.job.position}`,
+          start: app.interviewDate,
+          end: new Date(app.interviewDate.getTime() + 60 * 60 * 1000), // 1 hour duration
+          color: '#3B82F6', // Blue
+          extendedProps: {
+            type: 'interview',
+            company: app.job.companyName,
+            position: app.job.position,
+            location: app.job.location,
+            round: app.interviewRound || 'Interview'
+          }
+        });
+      }
+    });
+
+    // Get eligible jobs with upcoming drive dates
+    const jobs = await Job.find({
+      $and: [
+        {
+          $or: [
+            { eligibleCourses: { $in: [student.course] } },
+            { eligibleCourses: { $size: 0 } }
+          ]
+        },
+        {
+          $or: [
+            { eligibleBranches: { $in: [student.branch] } },
+            { eligibleBranches: { $size: 0 } }
+          ]
+        },
+        {
+          $or: [
+            { eligibleYears: { $in: [student.year] } },
+            { eligibleYears: { $size: 0 } }
+          ]
+        }
+      ]
+    });
+
+    // Add job drive events
+    jobs.forEach(job => {
+      if (job.driveDate) {
+        try {
+          const driveDate = new Date(job.driveDate);
+          if (driveDate >= now && !isNaN(driveDate.getTime())) {
+            events.push({
+              id: `drive-${job._id}`,
+              title: `Job Drive - ${job.position}`,
+              start: driveDate,
+              allDay: true,
+              color: '#10B981', // Green
+              extendedProps: {
+                type: 'drive',
+                company: job.companyName,
+                position: job.position,
+                location: job.location,
+                package: job.salaryPackage
+              }
+            });
+          }
+        } catch (e) {
+          console.warn('Invalid drive date for job:', job._id, job.driveDate);
+        }
+      }
+
+      // Add application deadline events
+      if (job.applicationDeadline) {
+        try {
+          const deadline = new Date(job.applicationDeadline);
+          if (deadline >= now && !isNaN(deadline.getTime())) {
+            events.push({
+              id: `deadline-${job._id}`,
+              title: `Deadline - ${job.position}`,
+              start: deadline,
+              allDay: true,
+              color: '#F59E0B', // Yellow/Orange
+              extendedProps: {
+                type: 'deadline',
+                company: job.companyName,
+                position: job.position,
+                action: 'Application Deadline'
+              }
+            });
+          }
+        } catch (e) {
+          console.warn('Invalid deadline date for job:', job._id, job.applicationDeadline);
+        }
+      }
+    });
+
+    res.json(events);
+  } catch (error) {
+    console.error('Get calendar events error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
