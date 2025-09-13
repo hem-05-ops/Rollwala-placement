@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const connectDB = async () => {
   try {
     const mongoURI = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/placement';
-    console.log("Mongo URI:", mongoURI);
+    console.log("🔗 Connecting to MongoDB database...");
     
     // Remove the dbName option or set it to "placement"
     await mongoose.connect(mongoURI, {
