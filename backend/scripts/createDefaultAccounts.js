@@ -7,7 +7,7 @@ require('dotenv').config();
 const createDefaultAccounts = async () => {
   try {
     // Connect to MongoDB
-    const mongoURI = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/placement';
+    const mongoURI = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb+srv://hemjshah052:hem0502@cluster0.vd6tt.mongodb.net/placement?retryWrites=true&w=majority';
     await mongoose.connect(mongoURI, {
       retryWrites: true,
       w: "majority",

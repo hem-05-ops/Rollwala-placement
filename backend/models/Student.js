@@ -8,16 +8,10 @@ const studentSchema = new mongoose.Schema(
     branch: { type: String, required: true, enum: ['WD', 'AIML'] },
     year: { type: String, required: true, enum: ['1st', '2nd', '3rd', '4th', '5th'] },
     cgpa: { type: Number, required: true, min: 0, max: 10 },
-    resume: { type: String }, // File path to uploaded resume
+    resume: { type: String },
     contact: { type: String, required: true },
     skills: [{ type: String }],
-    projects: [{
-      name: { type: String, required: true },
-      description: { type: String },
-      technology: { type: String },
-      status: { type: String, enum: ['Completed', 'In Progress', 'Planned'], default: 'Planned' },
-      link: { type: String }
-    }],
+    projects: [{ type: String }], // Changed from complex object to simple array
     certifications: [{ type: String }],
     achievements: [{ type: String }],
     linkedin: { type: String },
@@ -26,5 +20,11 @@ const studentSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Add a pre-save hook to handle updates without required fields
+studentSchema.pre('findOneAndUpdate', function(next) {
+  this.options.runValidators = false; // Disable validation for updates
+  next();
+});
 
 module.exports = mongoose.model('Student', studentSchema);

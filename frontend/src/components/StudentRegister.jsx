@@ -21,6 +21,7 @@ const StudentRegister = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   const courses = ['BSc.CS', 'MSc.CS', 'MSc.AIML', 'MCA'];
   const branches = ['WD', 'AIML'];
   const years = ['1st', '2nd', '3rd', '4th', '5th'];
@@ -49,17 +50,42 @@ const StudentRegister = () => {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/students/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
+      console.log('Attempting registration with:', formData);
+      
+      // FIXED: Changed from /api/students/register to /api/auth/register
+     const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    name: formData.name,
+    email: formData.email,
+    password: formData.password,
+    confirmPassword: formData.confirmPassword, // Add this line
+    role: 'student',
+    rollNo: formData.rollNo,
+    course: formData.course,
+    branch: formData.branch,
+    year: formData.year,
+    cgpa: formData.cgpa,
+    contact: formData.contact
+  }),
+});
+
+      console.log('Response status:', response.status);
+
+      // Check if response is OK before parsing JSON
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('HTTP error details:', errorText);
+        throw new Error(`Registration failed: ${errorText || 'Unknown error'}`);
+      }
 
       const data = await response.json();
+      console.log('Registration response:', data);
 
-      if (response.ok) {
+      if (data.user) {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
         toast.success('Registration successful! Welcome to the placement portal.');
@@ -69,7 +95,7 @@ const StudentRegister = () => {
       }
     } catch (error) {
       console.error('Registration error:', error);
-      toast.error('Registration failed. Please try again.');
+      toast.error(error.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }

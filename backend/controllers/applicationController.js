@@ -1,81 +1,31 @@
+// backend/controllers/applicationController.js
 const Application = require('../models/Application');
 const Job = require('../models/Job');
-<<<<<<< HEAD
-const User = require('../models/User');
-
-// Submit application
-exports.submitApplication = async (req, res) => {
-  try {
-    const { jobId, formResponses } = req.body;
-    const studentId = req.user._id;
-    const application = new Application({
-      job: jobId,
-      student: studentId,
-      formResponses,
-    });
-    await application.save();
-    res.status(201).json({ message: 'Application submitted successfully.' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// Get applications for a job (admin)
-exports.getApplicationsByJob = async (req, res) => {
-  try {
-    const { jobId } = req.params;
-    const applications = await Application.find({ job: jobId }).populate('student');
-    res.json(applications);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// Update application status (admin)
-exports.updateApplicationStatus = async (req, res) => {
-  try {
-    const { applicationId } = req.params;
-    const { status, notes } = req.body;
-    const application = await Application.findById(applicationId);
-    if (!application) return res.status(404).json({ error: 'Application not found.' });
-    application.status = status;
-    application.notes = notes || application.notes;
-    await application.save();
-    res.json({ message: 'Application status updated.' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// Get applications for a student
-exports.getApplicationsByStudent = async (req, res) => {
-  try {
-    const studentId = req.user._id;
-    const applications = await Application.find({ student: studentId }).populate('job');
-    res.json(applications);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-=======
+const Student = require('../models/Student');
 
 // Submit a job application
 exports.submitApplication = async (req, res) => {
   try {
-    const { jobId, applicantData, formResponses } = req.body;
+    const { jobId, formResponses, applicantData } = req.body;
     
-    // Check if job exists and is on-campus
+    // Check if job exists
     const job = await Job.findById(jobId);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
     
-    if (job.campusType !== 'on-campus') {
-      return res.status(400).json({ error: 'This job does not accept applications through this system' });
+    // Get student data (assuming student is logged in)
+    const studentId = req.user._id; // Assuming you have authentication
+    const student = await Student.findById(studentId);
+    
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found' });
     }
     
-    // Check if applicant already applied for this job
+    // Check if student already applied for this job
     const existingApplication = await Application.findOne({
-      jobId,
-      applicantEmail: applicantData.applicantEmail
+      job: jobId,
+      student: studentId
     });
     
     if (existingApplication) {
@@ -84,22 +34,28 @@ exports.submitApplication = async (req, res) => {
     
     // Create new application
     const application = new Application({
-      jobId,
-      applicantName: applicantData.applicantName,
-      applicantEmail: applicantData.applicantEmail,
-      applicantPhone: applicantData.applicantPhone,
-      applicantCourse: applicantData.applicantCourse,
-      applicantYear: applicantData.applicantYear,
-      applicantBranch: applicantData.applicantBranch,
+      job: jobId,
+      student: studentId,
+      applicantName: applicantData?.applicantName || student.name,
+      applicantEmail: applicantData?.applicantEmail || student.email,
+      applicantPhone: applicantData?.applicantPhone || student.phone,
+      applicantCourse: applicantData?.applicantCourse || student.course,
+      applicantYear: applicantData?.applicantYear || student.year,
+      applicantBranch: applicantData?.applicantBranch || student.branch,
       formResponses
     });
     
     await application.save();
     
+    // Populate the saved application for response
+    const populatedApplication = await Application.findById(application._id)
+      .populate('job', 'title company')
+      .populate('student', 'name email phone course year branch');
+    
     res.status(201).json({
       success: true,
       message: 'Application submitted successfully',
-      application
+      application: populatedApplication
     });
   } catch (err) {
     console.error('Error submitting application:', err);
@@ -112,13 +68,14 @@ exports.getJobApplications = async (req, res) => {
   try {
     const { jobId } = req.params;
     
-    const applications = await Application.find({ jobId })
-      .populate('jobId', 'position companyName')
+    const applications = await Application.find({ job: jobId })
+      .populate('job', 'title company')
+      .populate('student', 'name email phone course year branch')
       .sort({ appliedAt: -1 });
     
     res.json(applications);
   } catch (err) {
-    console.error('Error fetching applications:', err);
+    console.error('Error fetching job applications:', err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -127,12 +84,13 @@ exports.getJobApplications = async (req, res) => {
 exports.getAllApplications = async (req, res) => {
   try {
     const applications = await Application.find()
-      .populate('jobId', 'position companyName campusType')
+      .populate('job', 'title company')
+      .populate('student', 'name email phone course year branch')
       .sort({ appliedAt: -1 });
     
     res.json(applications);
   } catch (err) {
-    console.error('Error fetching applications:', err);
+    console.error('Error fetching all applications:', err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -141,13 +99,21 @@ exports.getAllApplications = async (req, res) => {
 exports.updateApplicationStatus = async (req, res) => {
   try {
     const { applicationId } = req.params;
-    const { status, adminNotes } = req.body;
+    const { status, adminNotes, interviewDate, interviewRound, feedback } = req.body;
+    
+    const updateData = { status };
+    if (adminNotes !== undefined) updateData.adminNotes = adminNotes;
+    if (interviewDate !== undefined) updateData.interviewDate = interviewDate;
+    if (interviewRound !== undefined) updateData.interviewRound = interviewRound;
+    if (feedback !== undefined) updateData.feedback = feedback;
     
     const application = await Application.findByIdAndUpdate(
       applicationId,
-      { status, adminNotes },
+      updateData,
       { new: true }
-    ).populate('jobId', 'position companyName');
+    )
+    .populate('job', 'title company')
+    .populate('student', 'name email phone course year branch');
     
     if (!application) {
       return res.status(404).json({ error: 'Application not found' });
@@ -174,13 +140,82 @@ exports.getApplicationStats = async (req, res) => {
     
     const totalApplications = await Application.countDocuments();
     
+    // Get stats by job
+    const jobStats = await Application.aggregate([
+      {
+        $group: {
+          _id: '$job',
+          total: { $sum: 1 },
+          statusCounts: {
+            $push: {
+              status: '$status',
+              count: 1
+            }
+          }
+        }
+      },
+      {
+        $lookup: {
+          from: 'jobs',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'jobDetails'
+        }
+      },
+      {
+        $unwind: '$jobDetails'
+      }
+    ]);
+    
     res.json({
       totalApplications,
-      statusBreakdown: stats
+      statusBreakdown: stats,
+      jobStats
     });
   } catch (err) {
     console.error('Error fetching application stats:', err);
     res.status(500).json({ error: err.message });
->>>>>>> origin/job-fetching-fix
   }
 };
+
+// Get applications for current student
+exports.getMyApplications = async (req, res) => {
+  try {
+    const studentId = req.user._id;
+    
+    const applications = await Application.find({ student: studentId })
+      .populate('job', 'title company location')
+      .sort({ appliedAt: -1 });
+    
+    res.json(applications);
+  } catch (err) {
+    console.error('Error fetching student applications:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Get single application by ID
+exports.getApplicationById = async (req, res) => {
+  try {
+    const { applicationId } = req.params;
+    
+    const application = await Application.findById(applicationId)
+      .populate('job', 'title company description requirements')
+      .populate('student', 'name email phone course year branch resume');
+    
+    if (!application) {
+      return res.status(404).json({ error: 'Application not found' });
+    }
+    
+    // Check if user has permission to view this application
+    if (req.user.role === 'student' && application.student._id.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    res.json(application);
+  } catch (err) {
+    console.error('Error fetching application:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+

@@ -22,7 +22,7 @@ const AdminHeader = () => {
     <header className="admin-header">
       <div className="admin-header-content">
         <div className="admin-header-left">
-          <h1>🎓 PMS Admin Panel</h1>
+          <h1>PMS Admin Panel</h1>
           <span className="admin-subtitle">Placement Management System</span>
         </div>
         
@@ -32,7 +32,7 @@ const AdminHeader = () => {
               className="nav-btn"
               onClick={() => handleNavigation('/admin-job-posting')}
             >
-              📝 Job Management
+            Job Management
             </button>
             {isSuperAdmin && (
               <>
@@ -40,13 +40,13 @@ const AdminHeader = () => {
                   className="nav-btn"
                   onClick={() => handleNavigation('/application-management')}
                 >
-                  📋 Application Management
+                Application Management
                 </button>
                 <button 
                   className="nav-btn"
                   onClick={() => handleNavigation('/admin-management')}
                 >
-                  🔧 Admin Management
+                  User Management
                 </button>
                 <button 
                   className="nav-btn"
@@ -63,11 +63,11 @@ const AdminHeader = () => {
           <div className="admin-user-info">
             <span className="admin-name">👤 {adminUser.name || 'Admin'}</span>
             <span className="admin-role">
-              {isSuperAdmin ? '👑 Super Admin' : '🔑 Admin'}
+              {isSuperAdmin ? ' Super Admin' : ' Admin'}
             </span>
           </div>
           <button onClick={handleLogout} className="admin-logout-btn">
-            🚪 Logout
+             Logout
           </button>
         </div>
       </div>

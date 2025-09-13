@@ -20,8 +20,8 @@ const ApplicationManagement = () => {
       setLoading(true);
       const token = localStorage.getItem('token');
       const url = selectedJob === 'all' 
-        ? '/api/applications' 
-        : `/api/applications/job/${selectedJob}`;
+        ? '/api/applications'
+        : `/api/applications?jobId=${selectedJob}`;
       
       const response = await fetch(url, {
         headers: {
@@ -29,16 +29,15 @@ const ApplicationManagement = () => {
         }
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setApplications(data);
-        setError('');
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error || 'Failed to fetch applications');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      const data = await response.json();
+      setApplications(data);
+      setError('');
     } catch (err) {
-      setError('Error fetching applications');
+      setError(err.message || 'Error fetching applications');
       console.error('Fetch applications error:', err);
     } finally {
       setLoading(false);
@@ -104,7 +103,6 @@ const ApplicationManagement = () => {
 
       if (response.ok) {
         setSuccess('Application status updated successfully!');
-        // Clear success message after 3 seconds
         setTimeout(() => setSuccess(''), 3000);
         fetchApplications();
         fetchStats();
@@ -174,6 +172,7 @@ const ApplicationManagement = () => {
   useEffect(() => {
     fetchJobs();
     fetchStats();
+    fetchApplications();
   }, []);
 
   // Fetch applications when selectedJob changes
@@ -296,9 +295,9 @@ const ApplicationManagement = () => {
                 {application.jobId && (
                   <div className="job-info">
                     <h4>Job Details</h4>
-                    <p><strong>Position:</strong> {application.jobId.position || 'N/A'}</p>
-                    <p><strong>Company:</strong> {application.jobId.companyName || 'N/A'}</p>
-                    <p><strong>Type:</strong> {application.jobId.campusType || 'N/A'}</p>
+                    <p><strong>Position:</strong> {application.jobId?.position || 'N/A'}</p>
+                    <p><strong>Company:</strong> {application.jobId?.companyName || 'N/A'}</p>
+                    <p><strong>Type:</strong> {application.jobId?.campusType || 'N/A'}</p>
                   </div>
                 )}
                 

@@ -131,12 +131,12 @@ function Footer() {
                 <li>
                   <a href="/jobs">Job Listings</a>
                 </li>
-                <li>
+                {/* <li>
                   <a href="/profile">My Profile</a>
-                </li>
-                <li>
+                </li> */}
+                {/* <li>
                   <a href="/admin-job-posting">Post Jobs</a>
-                </li>
+                </li> */}
               </ul>
             </div>
 

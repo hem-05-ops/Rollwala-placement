@@ -11,15 +11,9 @@ import {
   LogOut,
   Plus,
   Eye,
-  Send,
-  CheckCircle,
-  Clock,
   X,
-  Edit,
-  Book,
-  Award,
-  Target,
-  MessageSquare
+  MessageSquare,
+  Clock // Add this import
 } from 'lucide-react';
 
 const StudentDashboard = () => {
@@ -34,16 +28,19 @@ const StudentDashboard = () => {
   const [showProfileEdit, setShowProfileEdit] = useState(false);
   const navigate = useNavigate();
 
-  const [profileEditData, setProfileEditData] = useState({
-    cgpa: '',
-    contact: '',
-    skills: [],
-    linkedin: '',
-    github: '',
-    projects: [],
-    certifications: [],
-    achievements: []
-  });
+  // Add API_BASE_URL constant
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+const [profileEditData, setProfileEditData] = useState({
+  cgpa: '',
+  contact: '',
+  skills: [],
+  linkedin: '',
+  github: '',
+  projects: [], // Now a simple array of strings
+  certifications: [],
+  achievements: []
+});
 
   const [interviewFormData, setInterviewFormData] = useState({
     company: '',
@@ -67,51 +64,72 @@ const StudentDashboard = () => {
     fetchStudentData();
   }, [navigate]);
 
-  const fetchStudentData = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const headers = {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      };
 
-      // Fetch student profile
-      const profileResponse = await fetch('/api/students/profile', { headers });
-      if (profileResponse.ok) {
-        const profileData = await profileResponse.json();
-        setStudent(profileData);
-        setProfileEditData({
-          cgpa: profileData.cgpa || '',
-          contact: profileData.contact || '',
-          skills: profileData.skills || [],
-          linkedin: profileData.linkedin || '',
-          github: profileData.github || '',
-          projects: profileData.projects || [],
-          certifications: profileData.certifications || [],
-          achievements: profileData.achievements || []
-        });
-      }
-
-      // Fetch applications
-      const applicationsResponse = await fetch('/api/students/applications', { headers });
-      if (applicationsResponse.ok) {
-        const applicationsData = await applicationsResponse.json();
-        setApplications(applicationsData);
-      }
-
-      // Fetch eligible jobs
-      const jobsResponse = await fetch('/api/students/eligible-jobs', { headers });
-      if (jobsResponse.ok) {
-        const jobsData = await jobsResponse.json();
-        setEligibleJobs(jobsData);
-      }
-    } catch (error) {
-      console.error('Error fetching student data:', error);
-      toast.error('Error loading dashboard data');
-    } finally {
-      setLoading(false);
+  
+const fetchStudentData = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      throw new Error('No authentication token found');
     }
-  };
+    
+    const headers = {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    };
+
+    // Fetch student profile
+    const profileResponse = await fetch(`${API_BASE_URL}/api/students/profile`, { headers });
+    
+    if (profileResponse.status === 401) {
+      const errorData = await profileResponse.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Authentication failed');
+    }
+    
+    if (profileResponse.status === 404) {
+      // Handle missing profile (create one)
+      // ... your existing profile creation code ...
+    } else if (profileResponse.ok) {
+      const profileData = await profileResponse.json();
+      setStudent(profileData);
+      // ... set profile edit data ...
+    }
+
+    // Fetch ALL jobs (not just eligible ones) - Use the same endpoint as Jobs.jsx
+    console.log('Fetching all jobs from:', `${API_BASE_URL}/api/jobs`);
+    const jobsResponse = await fetch(`${API_BASE_URL}/api/jobs`, { 
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    console.log('Jobs response status:', jobsResponse.status);
+    
+    if (jobsResponse.ok) {
+      const jobsData = await jobsResponse.json();
+      console.log('All jobs data received:', jobsData);
+      setEligibleJobs(jobsData);
+    } else {
+      const errorText = await jobsResponse.text();
+      console.error('Jobs fetch error:', errorText);
+    }
+
+    // Fetch applications
+    const applicationsResponse = await fetch(`${API_BASE_URL}/api/students/applications`, { headers });
+    if (applicationsResponse.ok) {
+      const applicationsData = await applicationsResponse.json();
+      setApplications(applicationsData);
+    }
+    
+  } catch (error) {
+    console.error('Error fetching student data:', error);
+    // ... error handling ...
+  } finally {
+    setLoading(false);
+  }
+};
+  // ... rest of your component code remains the same
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -123,7 +141,7 @@ const StudentDashboard = () => {
   const handleApplyForJob = async (jobId) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/students/apply', {
+      const response = await fetch(`${API_BASE_URL}/api/students/apply`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -147,36 +165,47 @@ const StudentDashboard = () => {
     }
   };
 
+  
   const handleProfileUpdate = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_BASE_URL}/api/students/profile`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(profileEditData)
+    });
+
+    // Get response as text first to handle non-JSON responses
+    const responseText = await response.text();
+    let data;
+    
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/students/profile', {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(profileEditData)
-      });
-
-      const data = await response.json();
-      if (response.ok) {
-        toast.success('Profile updated successfully!');
-        setShowProfileEdit(false);
-        fetchStudentData();
-      } else {
-        toast.error(data.error || 'Update failed');
-      }
-    } catch (error) {
-      console.error('Update error:', error);
-      toast.error('Update failed');
+      data = JSON.parse(responseText);
+    } catch (e) {
+      console.error('Failed to parse response as JSON:', responseText);
+      throw new Error('Server returned invalid response');
     }
-  };
 
+    if (response.ok) {
+      toast.success('Profile updated successfully!');
+      setShowProfileEdit(false);
+      fetchStudentData();
+    } else {
+      console.error('Profile update failed:', data);
+      toast.error(data.error || data.message || 'Update failed');
+    }
+  } catch (error) {
+    console.error('Update error:', error);
+    toast.error(error.message || 'Update failed. Please try again.');
+  }
+};
   const handleInterviewSubmission = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/interview-experiences/submit', {
+      const response = await fetch(`${API_BASE_URL}/api/interview-experiences/submit`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -231,10 +260,12 @@ const StudentDashboard = () => {
     }
   };
 
+  
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm">
+      <header className="bg-black shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center">
@@ -489,7 +520,7 @@ const StudentDashboard = () => {
                             {application.job?.position || 'Position not available'}
                           </h3>
                           <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(application.status)}`}>
-                            {application.status.charAt(0).toUpperCase() + application.status.slice(1)}
+                            {application.status?.charAt(0).toUpperCase() + application.status?.slice(1) || 'Unknown'}
                           </span>
                         </div>
                         <p className="text-sm text-gray-600">{application.job?.companyName || 'Company not available'}</p>

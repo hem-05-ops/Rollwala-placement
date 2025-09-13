@@ -1,24 +1,24 @@
-.admin-management-container {
+.user-management-container {
   max-width: 1200px;
   margin: 0 auto;
   padding: 30px 20px;
 }
 
-.admin-management-header {
+.user-management-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 30px;
 }
 
-.admin-management-header h1 {
+.user-management-header h1 {
   color: #2c3e50;
   margin: 0;
   font-size: 32px;
   font-weight: 700;
 }
 
-.invite-admin-btn {
+.invite-user-btn {
   background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
   color: white;
   border: none;
@@ -30,7 +30,7 @@
   transition: all 0.3s ease;
 }
 
-.invite-admin-btn:hover {
+.invite-user-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 20px rgba(39, 174, 96, 0.3);
 }
@@ -53,6 +53,74 @@
   margin-bottom: 20px;
   font-size: 14px;
   border: 1px solid #9ae6b4;
+}
+
+.user-filters {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  align-items: center;
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.search-box {
+  position: relative;
+  flex: 1;
+  min-width: 250px;
+}
+
+.search-box input {
+  width: 100%;
+  padding: 12px 15px 12px 35px;
+  border: 2px solid #e1e5e9;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: border-color 0.3s ease;
+}
+
+.search-box input:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #7f8c8d;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-group label {
+  white-space: nowrap;
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 14px;
+}
+
+.filter-group select {
+  padding: 10px;
+  border: 2px solid #e1e5e9;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: border-color 0.3s ease;
+}
+
+.filter-group select:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
 }
 
 .invite-form-container {
@@ -143,26 +211,29 @@
   background: #7f8c8d;
 }
 
-.admins-list h2 {
+.users-list h2 {
   color: #2c3e50;
   margin-bottom: 20px;
   font-size: 24px;
 }
 
-.no-admins {
+.no-users {
   text-align: center;
   padding: 40px;
   color: #7f8c8d;
   font-size: 18px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.admins-grid {
+.users-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 20px;
 }
 
-.admin-card {
+.user-card {
   background: white;
   border-radius: 12px;
   padding: 20px;
@@ -170,51 +241,103 @@
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-.admin-card:hover {
+.user-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 }
 
-.admin-info h3 {
+.user-card.inactive {
+  opacity: 0.7;
+  background-color: #f9f9f9;
+}
+
+.user-info {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.user-avatar {
+  font-size: 2rem;
+  position: relative;
+}
+
+.super-admin-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  font-size: 1rem;
+  background: gold;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-details h3 {
   color: #2c3e50;
   margin: 0 0 8px 0;
   font-size: 18px;
   font-weight: 600;
 }
 
-.admin-email {
+.user-email {
   color: #7f8c8d;
   margin: 0 0 12px 0;
   font-size: 14px;
 }
 
-.admin-role {
-  display: inline-block;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
+.user-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
   margin-bottom: 12px;
 }
 
-.admin-role.super_admin {
-  background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+.user-role, .user-joined {
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-weight: 600;
+  display: inline-block;
+  margin-right: 5px;
+}
+
+.user-role.student {
+  background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
   color: white;
 }
 
-.admin-role.admin {
+.user-role.faculty {
+  background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+  color: white;
+}
+
+.user-role.admin {
   background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
   color: white;
 }
 
-.admin-status {
+.user-role.super_admin {
+  background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+  color: white;
+}
+
+.user-joined {
+  background: #f5f5f5;
+  color: #666;
+}
+
+.user-status {
   color: #2c3e50;
   margin: 0 0 15px 0;
   font-size: 14px;
   font-weight: 500;
 }
 
-.admin-actions {
+.user-actions {
   display: flex;
   gap: 10px;
 }
@@ -236,7 +359,7 @@
   background: #e67e22;
 }
 
-.delete-admin-btn {
+.delete-user-btn {
   background: #e74c3c;
   color: white;
   border: none;
@@ -249,11 +372,17 @@
   flex: 1;
 }
 
-.delete-admin-btn:hover {
+.delete-user-btn:hover:not(:disabled) {
   background: #c0392b;
 }
 
-.admin-management-loading {
+.delete-user-btn:disabled {
+  background: #cccccc;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.user-management-loading {
   text-align: center;
   padding: 40px;
   color: #7f8c8d;
@@ -261,10 +390,20 @@
 }
 
 @media (max-width: 768px) {
-  .admin-management-header {
+  .user-management-header {
     flex-direction: column;
     gap: 20px;
     text-align: center;
+  }
+  
+  .user-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .filter-group {
+    flex-direction: column;
+    align-items: stretch;
   }
   
   .invite-form {
@@ -275,12 +414,16 @@
     flex-direction: column;
   }
   
-  .admins-grid {
+  .users-grid {
     grid-template-columns: 1fr;
   }
   
-  .admin-actions {
+  .user-info {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .user-actions {
     flex-direction: column;
   }
 }
-

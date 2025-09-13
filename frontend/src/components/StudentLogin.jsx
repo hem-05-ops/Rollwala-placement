@@ -14,6 +14,9 @@ const StudentLogin = () => {
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
+  // Get API base URL from environment variable or use default
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -26,7 +29,9 @@ const StudentLogin = () => {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/auth/login', {
+      console.log('Attempting login with:', formData);
+      
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -34,23 +39,36 @@ const StudentLogin = () => {
         body: JSON.stringify(formData),
       });
 
-      const data = await response.json();
+      console.log('Response status:', response.status);
 
-      if (response.ok) {
-        if (data.user.role === 'student') {
-          localStorage.setItem('token', data.token);
-          localStorage.setItem('user', JSON.stringify(data.user));
-          toast.success('Welcome back!');
-          navigate('/student-dashboard');
-        } else {
-          toast.error('Access denied. Student credentials required.');
-        }
+      // Check if response is OK before parsing JSON
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('HTTP error details:', errorText);
+        throw new Error(`Login failed: ${errorText || 'Unknown error'}`);
+      }
+
+      const data = await response.json();
+      console.log('Full response data:', data);
+
+      // Debug: Check the actual role and user data
+      console.log('User role:', data.user?.role);
+      console.log('User data:', data.user);
+
+      // Check for student role (case insensitive)
+      const userRole = data.user?.role?.toLowerCase();
+      if (userRole === 'student') {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        toast.success('Welcome back! Login successful!');
+        navigate('/student-dashboard');
       } else {
-        toast.error(data.error || 'Login failed');
+        console.warn('Access denied - user role:', data.user?.role);
+        toast.error(`Access denied. Student credentials required. (Your role: ${data.user?.role || 'unknown'})`);
       }
     } catch (error) {
       console.error('Login error:', error);
-      toast.error('Login failed. Please try again.');
+      toast.error(error.message || 'Login failed. Please check your credentials and try again.');
     } finally {
       setLoading(false);
     }
@@ -62,9 +80,9 @@ const StudentLogin = () => {
       <div className="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-8">
           <div className="text-center">
-            <div className="mx-auto h-16 w-16 bg-blue-600 rounded-full flex items-center justify-center">
+            {/* <div className="mx-auto h-16 w-16 bg-blue-600 rounded-full flex items-center justify-center">
               <GraduationCap className="h-8 w-8 text-white" />
-            </div>
+            </div> */}
             <h2 className="mt-6 text-3xl font-extrabold text-gray-900">Student Login</h2>
             <p className="mt-2 text-sm text-gray-600">
               Access your placement portal
@@ -147,9 +165,9 @@ const StudentLogin = () => {
             </div>
 
             <div className="text-center">
-              <p className="text-xs text-gray-500">
+              {/* <p className="text-xs text-gray-500">
                 Demo Account: student@example.com / student123
-              </p>
+              </p> */}
             </div>
           </form>
         </div>

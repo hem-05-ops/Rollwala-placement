@@ -247,7 +247,8 @@ const JobDetails = ({ job, onBack, onApply }) => {
               </li>
             )}
           </ul>
-        </div>        {job.companyWebsite ? (
+        </div>       
+         {/* {job.companyWebsite ? (
           <a 
             href={job.companyWebsite} 
             target="_blank" 
@@ -260,7 +261,7 @@ const JobDetails = ({ job, onBack, onApply }) => {
           <button className="apply-button" onClick={() => onApply && onApply(job)}>
             Apply Now
           </button>
-        )}
+        )} */}
       </div>
     </div>
   );

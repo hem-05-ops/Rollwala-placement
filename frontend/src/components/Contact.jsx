@@ -11,7 +11,7 @@ import jayPatel from "../assets/faculties/jayPatel.webp";
 import hardikJoshi from "../assets/faculties/hardikJoshi.webp";
 import jignaSatani from "../assets/faculties/jignaSatani.webp";
 import suchitPurohit from "../assets/faculties/suchitPurohit.webp";
-// import chiragPujara from "..//Assets/faculties/chiragPujara.webp";
+import chirag from "../assets/faculties/chiragsir.jpg";
 // Executive Director
 const executiveDirector = {
   name: "Dr. Hiren Joshi",
@@ -67,7 +67,7 @@ const dcpdTeam = [
     name: "Mr. Chirag Pujara",
     title: "DCS Trainer",
     photo:
-      suchitPurohit,
+      chirag,
     phone: "+91-98765-22222",
     email: "chirag.pujara@dcs.ac.in",
   },

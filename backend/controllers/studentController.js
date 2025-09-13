@@ -27,6 +27,7 @@ const studentRegisterSchema = z.object({
 });
 
 // Student registration
+// Student registration
 exports.registerStudent = async (req, res) => {
   try {
     const payload = studentRegisterSchema.parse(req.body);
@@ -54,9 +55,9 @@ exports.registerStudent = async (req, res) => {
       role: 'student'
     });
 
-    // Create student profile
+    // Create student profile - make sure to use user._id
     const student = await Student.create({
-      user: user._id,
+      user: user._id, // This is the crucial link
       rollNo: payload.rollNo,
       course: payload.course,
       branch: payload.branch,
@@ -65,7 +66,13 @@ exports.registerStudent = async (req, res) => {
       contact: payload.contact
     });
 
-    const token = jwt.sign({ sub: user._id, email: user.email, role: user.role }, JWT_SECRET, {
+    console.log('Created student profile:', student);
+
+    const token = jwt.sign({ 
+      id: user._id, 
+      email: user.email, 
+      role: user.role 
+    }, JWT_SECRET, {
       expiresIn: JWT_EXPIRES_IN
     });
 
@@ -81,21 +88,90 @@ exports.registerStudent = async (req, res) => {
       }
     });
   } catch (err) {
+    console.error('Registration error:', err);
+    
+    // If user was created but student failed, delete the user
+    if (err.name === 'MongoError' && err.code === 11000) {
+      // Handle duplicate key error
+      await User.deleteOne({ email: req.body.email });
+      return res.status(409).json({ error: 'Roll number or email already exists' });
+    }
+    
     if (err instanceof z.ZodError) {
       return res.status(400).json({ error: 'Validation failed', details: err.flatten() });
     }
-    console.error('Registration error:', err);
+    
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
-
 // Get student profile
+// Get student profile
+// Get student profile
+// Get student profile
+// Create missing student profile
+exports.createStudentProfile = async (req, res) => {
+  try {
+    const { rollNo, course, branch, year, cgpa, contact } = req.body;
+    
+    console.log('Creating student profile for user:', req.user.id);
+    
+    // Check if student profile already exists
+    const existingStudent = await Student.findOne({ user: req.user.id });
+    if (existingStudent) {
+      return res.status(409).json({ error: 'Student profile already exists' });
+    }
+    
+    // Get user details to use for the student profile
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Create new student profile
+    const student = await Student.create({
+      user: req.user.id,
+      rollNo: rollNo || `TEMP-${Date.now()}`,
+      course: course || 'BSc.CS',
+      branch: branch || 'WD',
+      year: year || '1st',
+      cgpa: cgpa || 0,
+      contact: contact || 'Not provided',
+      skills: [],
+      projects: [],
+      certifications: [],
+      achievements: []
+    });
+    
+    const populatedStudent = await Student.findById(student._id)
+      .populate('user', 'name email role');
+    
+    console.log('Created student profile:', populatedStudent);
+    
+    res.status(201).json(populatedStudent);
+  } catch (error) {
+    console.error('Create profile error:', error);
+    
+    // Handle duplicate roll number error
+    if (error.code === 11000 && error.keyPattern && error.keyPattern.rollNo) {
+      return res.status(409).json({ error: 'Roll number already exists' });
+    }
+    
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 exports.getStudentProfile = async (req, res) => {
   try {
-    const student = await Student.findOne({ user: req.user.id }).populate('user', 'name email');
+    console.log('Fetching profile for user ID:', req.user.id);
+    
+    const student = await Student.findOne({ user: req.user.id })
+      .populate('user', 'name email role');
+    
     if (!student) {
+      console.log('No student profile found for user:', req.user.id);
       return res.status(404).json({ error: 'Student profile not found' });
     }
+    
     res.json(student);
   } catch (error) {
     console.error('Get profile error:', error);
@@ -104,34 +180,67 @@ exports.getStudentProfile = async (req, res) => {
 };
 
 // Update student profile
+// Update student profile
+// Update student profile
+// Update student profile
 exports.updateStudentProfile = async (req, res) => {
   try {
-    const allowedUpdates = ['cgpa', 'contact', 'skills', 'projects', 'certifications', 'achievements', 'linkedin', 'github'];
+    console.log('=== UPDATE PROFILE REQUEST ===');
+    console.log('Authenticated user:', req.user);
+    console.log('Request body:', req.body);
+    
+    // Only allow updates to these fields (exclude required fields)
+    const allowedUpdates = ['skills', 'projects', 'certifications', 'achievements', 'linkedin', 'github', 'resume', 'profilePicture'];
     const updates = {};
     
     for (const field of allowedUpdates) {
       if (req.body[field] !== undefined) {
         updates[field] = req.body[field];
+        console.log(`Updating field ${field}:`, req.body[field]);
       }
     }
 
-    const student = await Student.findOneAndUpdate(
-      { user: req.user.id },
-      updates,
-      { new: true, runValidators: true }
-    ).populate('user', 'name email');
+    // Special handling for contact and cgpa (required fields)
+    if (req.body.contact !== undefined) {
+      updates.contact = req.body.contact;
+    }
+    
+    if (req.body.cgpa !== undefined) {
+      // Validate CGPA range
+      if (req.body.cgpa < 0 || req.body.cgpa > 10) {
+        return res.status(400).json({ error: 'CGPA must be between 0 and 10' });
+      }
+      updates.cgpa = req.body.cgpa;
+    }
 
-    if (!student) {
+    console.log('Final updates object:', updates);
+
+    // Use updateOne instead of findOneAndUpdate to avoid validation issues
+    const result = await Student.updateOne(
+      { user: req.user.id },
+      { $set: updates },
+      { runValidators: false } // Disable validation for update
+    );
+
+    if (result.matchedCount === 0) {
+      console.log('Student profile not found for user:', req.user.id);
       return res.status(404).json({ error: 'Student profile not found' });
     }
 
+    // Get the updated student
+    const student = await Student.findOne({ user: req.user.id }).populate('user', 'name email');
+    
+    console.log('Profile updated successfully:', student);
     res.json({ message: 'Profile updated successfully', student });
   } catch (error) {
-    console.error('Update profile error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('=== UPDATE PROFILE ERROR ===');
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    
+    res.status(500).json({ error: 'Internal server error', message: error.message });
   }
 };
-
 // Apply for job
 exports.applyForJob = async (req, res) => {
   try {
