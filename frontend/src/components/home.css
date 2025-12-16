@@ -541,6 +541,54 @@ body.light .partner-card:hover .partner-logo {
   filter: brightness(1) invert(0) drop-shadow(0 0 5px rgba(255, 160, 184, 0.5));
 }
 
+/* Logo Slider (continuous scroll) */
+.logo-slider {
+  padding: 1.5rem 0;
+  background: var(--bg-dark);
+}
+
+.slider {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+}
+
+.slide-track {
+  display: flex;
+  gap: 2rem;
+  width: max-content;
+  animation: logo-scroll 30s linear infinite;
+}
+
+@keyframes logo-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.slide {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1rem;
+}
+
+.logo-img {
+  height: 48px;
+  max-width: 180px;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+  transition: transform var(--transition-speed) ease, filter var(--transition-speed) ease;
+}
+
+.slide:hover .logo-img {
+  transform: scale(1.05);
+  filter: brightness(1) invert(0);
+}
+
+body.light .logo-img {
+  filter: brightness(1) invert(0);
+}
+
 /* Stats Section */
 .stats-section {
   padding: 2.5rem 0;

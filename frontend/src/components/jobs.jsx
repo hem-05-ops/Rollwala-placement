@@ -3,27 +3,18 @@ import { ArrowLeft, MapPin, DollarSign, Clock, Building, User, Award } from 'luc
 import './jobs.css';
 import { API_ENDPOINTS } from '../config/api';
 
-// Utility function for logo URL handling
-// Utility function for logo URL handling - Use static assets
-// Utility function for logo URL handling - SIMPLIFIED
-// Utility function for logo URL handling - FIXED
+// Utility: build absolute logo URL against backend base
 const getCompanyLogoUrl = (logoPath) => {
-  if (!logoPath) return `${API_ENDPOINTS.UPLOADS}/default-logo.png`;
-  
-  // If it's already a full URL (Cloudinary or external)
+  // Default fallback to a known asset served by backend
+  if (!logoPath) return `${API_ENDPOINTS.UPLOADS}/assets/faculties/bg-logo.png`;
+
+  // Already absolute (Cloudinary/external)
   if (logoPath.startsWith('http')) return logoPath;
-  
-  // If it's a path starting with /assets/ (faculty images)
-  if (logoPath.startsWith('/assets/')) {
-    return `${API_ENDPOINTS.UPLOADS}${logoPath}`;
-  }
-  
-  // If it's a path starting with /uploads/ (uploaded company logos)
-  if (logoPath.startsWith('/uploads/')) {
-    return `${API_ENDPOINTS.UPLOADS}${logoPath}`;
-  }
-  
-  // If it's just a filename, assume it's in assets/faculties folder
+
+  // Any root-relative path like /assets/... or /uploads/...
+  if (logoPath.startsWith('/')) return `${API_ENDPOINTS.UPLOADS}${logoPath}`;
+
+  // Plain filename -> assume it lives under assets/faculties
   return `${API_ENDPOINTS.UPLOADS}/assets/faculties/${logoPath}`;
 };
 // JobCard Component
@@ -46,7 +37,7 @@ const JobCard = ({ job, onClick }) => {
             className="company-logo"
             onError={(e) => {
               console.error('Failed to load logo:', logoUrl);
-              e.target.src = '/default-logo.png'; // Fallback if image fails to load
+              e.target.src = `${API_ENDPOINTS.UPLOADS}/assets/faculties/bg-logo.png`; // Backend-served fallback
             }}
           />
           <div className="company-name">{job.companyName}</div>
@@ -161,7 +152,7 @@ const JobDetails = ({ job, onBack, onApply }) => {
           className="details-logo"
           onError={(e) => {
             console.error('Failed to load logo:', logoUrl);
-            e.target.src = '/default-logo.png'; // Fallback if image fails to load
+            e.target.src = `${API_ENDPOINTS.UPLOADS}/assets/faculties/bg-logo.png`; // Backend-served fallback
           }}
         />
         <div className="header-content">

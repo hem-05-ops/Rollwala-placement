@@ -56,8 +56,9 @@ const UserManagement = () => {
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       result = result.filter(user => 
-        user.name.toLowerCase().includes(term) || 
-        user.email.toLowerCase().includes(term)
+        ((user.name || '').toLowerCase().includes(term)) ||
+        ((`${user.firstName || ''} ${user.lastName || ''}`.trim()).toLowerCase().includes(term)) ||
+        ((user.email || '').toLowerCase().includes(term))
       );
     }
 
@@ -144,16 +145,19 @@ const UserManagement = () => {
 
   if (loading) {
     return (
-      <div className="user-management-container">
+      <>
         <AdminHeader />
-        <div className="user-management-loading">Loading users...</div>
-      </div>
+        <div className="user-management-container">
+          <div className="user-management-loading">Loading users...</div>
+        </div>
+      </>
     );
   }
 
   return (
-    <div className="user-management-container">
+    <>
       <AdminHeader />
+      <div className="user-management-container">
       
       <div className="user-management-header">
         <h1>👥 User Management</h1>
@@ -348,6 +352,7 @@ const UserManagement = () => {
         )}
       </div>
     </div>
+    </>
   );
 };
 

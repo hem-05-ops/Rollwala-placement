@@ -1,6 +1,6 @@
 // frontend/src/api/user.js
 
-const API_BASE_URL = 'http://localhost:5000/api'; // Update with your backend URL
+const API_BASE_URL = 'http://localhost:3000/api';// Update with your backend URL
 
 // Helper function for API calls
 const apiRequest = async (endpoint, options = {}) => {

@@ -10,6 +10,7 @@ const jobSchema = new mongoose.Schema({
   location: String,
   applicationDeadline: String,
   jobDescription: String,
+  jobDescriptionFile: String,
   skillsRequired: String,
   selectionProcess: String,
   bondDetails: String,
@@ -22,6 +23,6 @@ const jobSchema = new mongoose.Schema({
   eligibleCourses: [String],
   eligibleYears: [String],
   eligibleBranches: [String],
-});
+}, { timestamps: true });
 
 module.exports = mongoose.model('Job', jobSchema);

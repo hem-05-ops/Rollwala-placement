@@ -2,6 +2,8 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const jobController = require('../controllers/jobControllers');
+const applicationController = require('../controllers/applicationController');
+const studentAdminController = require('../controllers/studentAdminController');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
@@ -24,5 +26,13 @@ router.get('/', jobController.getAllJobs);
 router.post('/', requireAuth, requireAdmin, upload.single('companyLogo'), jobController.createJob);
 router.put('/:id', requireAuth, requireAdmin, upload.single('companyLogo'), jobController.updateJob);
 router.delete('/:id', requireAuth, requireAdmin, jobController.deleteJob);
+
+// Applications export
+router.get('/export-applications', requireAuth, requireAdmin, applicationController.exportApplicationsExcel);
+
+// Student approval management
+router.get('/students/pending', requireAuth, requireAdmin, studentAdminController.getPendingStudents);
+router.patch('/students/:id/approve', requireAuth, requireAdmin, studentAdminController.approveStudent);
+router.delete('/students/:id/cancel', requireAuth, requireAdmin, studentAdminController.cancelStudent);
 
 module.exports = router;

@@ -1,11 +1,11 @@
 import axios from 'axios';
 // import API_BASE_URL from '../src/config/api';
 
-const API_BASE_URL = 'http://localhost:5000';
+const API_BASE_URL = 'http://localhost:3000';
+
 
 export const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: { 'Content-Type': 'application/json' }
+  baseURL: API_BASE_URL
 });
 
 export const setAuthToken = (token) => {
@@ -41,6 +41,6 @@ const stored = localStorage.getItem('token');
 if (stored) setAuthToken(stored);
 
 export default function handler(req, res) {
-  res.status(200).send('Welcome to PMS-CGC-U Backend API! 🚀');
-  res.status(200).send('Welcome to PMS-CGC-U Backend API (Vercel serverless)! 🚀');
+  res.status(200).send('Welcome to DCSGU Backend API! 🚀');
+  res.status(200).send('Welcome to DCSGU Backend API  🚀');
 }

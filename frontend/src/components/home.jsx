@@ -3,8 +3,41 @@
 import cgcBack from "../assets/OIP.jpg";
 import "./home.css";
 import { Star, Users, TrendingUp, Calendar, FileText, Award, Target, Shield, Zap, Globe, BookOpen, Briefcase } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { API_ENDPOINTS } from '../config/api';
 
 function Home() {
+  const [jobCompanies, setJobCompanies] = useState([]);
+
+  const getCompanyLogoUrl = (logoPath) => {
+    if (!logoPath) return `${API_ENDPOINTS.UPLOADS}/assets/faculties/bg-logo.png`;
+    if (typeof logoPath === 'string' && logoPath.startsWith('http')) return logoPath;
+    if (typeof logoPath === 'string' && logoPath.startsWith('/')) return `${API_ENDPOINTS.UPLOADS}${logoPath}`;
+    return `${API_ENDPOINTS.UPLOADS}/assets/faculties/${logoPath}`;
+  };
+
+  useEffect(() => {
+    const fetchJobs = async () => {
+      try {
+        const res = await fetch(API_ENDPOINTS.JOBS);
+        if (!res.ok) return;
+        const jobs = await res.json();
+        const map = new Map();
+        (jobs || []).forEach((job) => {
+          const name = job?.companyName?.trim();
+          if (!name) return;
+          if (!map.has(name)) {
+            map.set(name, getCompanyLogoUrl(job?.companyLogo));
+          }
+        });
+        const list = Array.from(map.entries()).map(([name, logo]) => ({ name, logo }));
+        setJobCompanies(list);
+      } catch (e) {
+        // swallow errors for home banner
+      }
+    };
+    fetchJobs();
+  }, []);
   const features = [
     {
       icon: <Users className="feature-icon" />,
@@ -49,48 +82,7 @@ function Home() {
     }
 
   ];
-
-  const alumni = [
-    { name: "Arjun Sharma", company: "Google", package: "₹45 LPA", image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face" },
-    {
-      name: "Priya Patel",
-      company: "Microsoft",
-      package: "₹42 LPA",
-      image: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop&crop=faces"
-    }
-    ,
-    { name: "Rohit Kumar", company: "Amazon", package: "₹38 LPA", image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face" },
-    { name: "Sneha Singh", company: "Apple", package: "₹50 LPA", image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face" },
-    { name: "Vikash Gupta", company: "Meta", package: "₹46 LPA", image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face" },
-    { name: "Anjali Rani", company: "Netflix", package: "₹40 LPA", image: "https://images.unsplash.com/photo-1489424731084-a5d8b219a5bb?w=150&h=150&fit=crop&crop=face" },
-    { name: "Manish Verma", company: "Adobe", package: "₹36 LPA", image: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&h=150&fit=crop&crop=face" },
-    { name: "Kavya Reddy", company: "Salesforce", package: "₹35 LPA", image: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&h=150&fit=crop&crop=face" },
-    { name: "Deepak Yadav", company: "Oracle", package: "₹32 LPA", image: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&h=150&fit=crop&crop=face" },
-    { name: "Ritu Sharma", company: "Uber", package: "₹34 LPA", image: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop&crop=face" }
-  ];
-
-
-
-  const companies = [
-    { name: "Google", logo: "https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png" },
-    { name: "Microsoft", logo: "https://upload.wikimedia.org/wikipedia/commons/9/96/Microsoft_logo_%282012%29.svg" },
-    { name: "Amazon", logo: "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg" },
-    { name: "Apple", logo: "https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg" },
-    { name: "Meta", logo: "https://upload.wikimedia.org/wikipedia/commons/7/7b/Meta_Platforms_Inc._logo.svg" },
-
-    { name: "Oracle", logo: "https://upload.wikimedia.org/wikipedia/commons/5/50/Oracle_logo.svg" },
-    { name: "IBM", logo: "https://upload.wikimedia.org/wikipedia/commons/5/51/IBM_logo.svg" },
-    { name: "Intel", logo: "https://upload.wikimedia.org/wikipedia/commons/7/7d/Intel_logo_%282006-2020%29.svg" },
-    { name: "Cisco", logo: "https://upload.wikimedia.org/wikipedia/commons/0/08/Cisco_logo_blue_2016.svg" },
-    { name: "HP", logo: "https://upload.wikimedia.org/wikipedia/commons/a/ad/HP_logo_2012.svg" },
-    { name: "Dell", logo: "https://upload.wikimedia.org/wikipedia/commons/1/18/Dell_logo_2016.svg" },
-    { name: "Accenture", logo: "https://upload.wikimedia.org/wikipedia/commons/c/cd/Accenture.svg" },
-    { name: "Deloitte", logo: "https://upload.wikimedia.org/wikipedia/commons/1/15/Deloitte_Logo.png" },
-
-    { name: "Wipro", logo: "https://upload.wikimedia.org/wikipedia/commons/a/a0/Wipro_Primary_Logo_Color_RGB.svg" },
-    { name: "Uber", logo: "https://upload.wikimedia.org/wikipedia/commons/5/58/Uber_logo_2018.svg" },
-
-  ];
+ 
 
   return (
     <main className="home-main">
@@ -111,10 +103,10 @@ function Home() {
             Empowering Dreams, Creating Futures - Your Gateway to Success
           </p>
           <div class="hero-buttons">
-                <a href="http://localhost:5173/jobs" class="btn btn-primary">
+                <a href="http://192.168.91.1:5000/jobs" class="btn btn-primary">
                     <i class="fas fa-search"></i>Explore Opportunities
                 </a>
-                <a href="http://localhost:5173/about" class="btn btn-secondary">
+                <a href="http://192.168.91.1:5000/about" class="btn btn-secondary">
                     <i class="fas fa-info-circle"></i>Learn More
                 </a>
             </div>
@@ -154,14 +146,14 @@ function Home() {
       {/* Alumni Success Stories */}
       <section className="alumni-section">
         <div className="container">
-          <div className="section-header">
+          {/* <div className="section-header">
             <h2 className="section-title">
               Alumni Success Stories
             </h2>
             <p className="section-description">
               Our graduates are making their mark at the world's leading companies
             </p>
-          </div>
+          </div> */}
 
           {/* <div className="alumni-grid">
             {alumni.map((alum, index) => (
@@ -193,14 +185,14 @@ function Home() {
       {/* Partnership Section */}
       <section className="partners-section">
         <div className="container">
-          <div className="section-header">
-            <h2 className="section-title">
+          {/* <div className="section-header">
+            <h2 className="section-title">  
               Our Industry Partners
             </h2>
             <p className="section-description">
               Collaborating with industry leaders to provide the best opportunities for our students
             </p>
-          </div>
+          </div> */}
 
           {/* <div className="partners-grid">
             {companies.map((company, index) => (
@@ -220,7 +212,45 @@ function Home() {
             ))} */}
           {/* </div> */}
         </div>
+           {jobCompanies.length > 0 && (
+        <section className="logo-slider">
+          <div className="container">
+            <div className="slider">
+              <div className="slide-track">
+                {jobCompanies.map((company, index) => (
+                  <div key={`slide-1-${index}`} className="slide">
+                    <img
+                      src={company.name==='Deloitte'?"/deloitte-seeklogo.svg": company.logo}
+                      alt={company.name}
+                      className="logo-img"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = `https://placehold.co/150x60/121212/FFFFFF?text=${company.name}`;
+                      }}
+                    />
+                  </div>
+                ))}
+                {jobCompanies.map((company, index) => (
+                  <div key={`slide-2-${index}`} className="slide">
+                    <img
+                      src={company.name==='Deloitte'?"/deloitte-seeklogo.svg": company.logo}
+                      alt={company.name}
+                      className="logo-img"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = `https://placehold.co/150x60/121212/FFFFFF?text=${company.name}`;
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
       </section>
+
+   
 
       {/* Stats Section */}
       <section className="stats-section">
@@ -247,16 +277,16 @@ function Home() {
       </section>
 
       {/* CTA Section */}
-      <section className="cta-section">
+      {/* <section className="cta-section">
         <div className="cta-container">
           <h2 className="cta-title">
             Ready to Launch Your Career?
           </h2>
           <p className="cta-description">
-            Join thousands of successful alumni who started their journey at CGC Jhanjeri
+            Join thousands of successful alumni who started their journey at Rollwala
           </p>
           <div className="cta-buttons">
-            <a href="/signin" className="btn btn-primary">
+            <a href="http://192.168.91.1:5000/student-login" className="btn btn-primary">
               Register Now
             </a>
             <a href="/Contact" className="btn btn-outline">
@@ -264,7 +294,7 @@ function Home() {
             </a>
           </div>
         </div>
-      </section>
+      </section> */}
     </main>
   );
 }

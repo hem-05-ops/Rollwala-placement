@@ -55,7 +55,7 @@ function Footer() {
   return (
     <footer className="pms-footer">
       {/* Newsletter Section - Full Width */}
-      <div className="footer-newsletter-full">
+      {/* <div className="footer-newsletter-full">
         <div className="footer-container">
           <div className="footer-newsletter-content">
             <div className="footer-newsletter-text">
@@ -87,7 +87,7 @@ function Footer() {
             </form>
           </div>
         </div>
-      </div>
+      </div> */}
 
       <div className="footer-container">
         {/* Top Section */}
@@ -167,12 +167,12 @@ function Footer() {
                 </li>
                 <li>
                   <FaEnvelope className="contact-icon" />
-                  <span>contact@placementsystem.com</span>
+                  <span>DCSGUplacenment@gmail.com</span>
                 </li>
-                <li>
+                {/* <li>
                   <FaPhone className="contact-icon phone" />
                   <span>+91 8758129102</span>
-                </li>
+                </li> */}
               </ul>
             </div>
           </div>
@@ -188,7 +188,7 @@ function Footer() {
             rights reserved.
           </div>
           <div className="footer-cta">
-            <a href="/signin" className="footer-cta-button">
+            <a href="http://192.168.91.1:5000/student-login" className="footer-cta-button">
               Sign In
             </a>
             <a href="/contact" className="outline">

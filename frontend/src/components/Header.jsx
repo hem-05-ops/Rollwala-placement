@@ -51,8 +51,8 @@ function Header() {
       <nav className="nav-links">
           <NavLink to="/about" className={({isActive}) => `nav-link${isActive ? ' active' : ''}`}>About</NavLink>
           <NavLink to="/contact" className={({isActive}) => `nav-link${isActive ? ' active' : ''}`}>Contact</NavLink>
-          <NavLink to="/jobs" className={({isActive}) => `nav-link${isActive ? ' active' : ''}`}>Jobs</NavLink>
-          <NavLink to="/interview-experience" className={({isActive}) => `nav-link${isActive ? ' active' : ''}`}>Interview Experience</NavLink>
+          <NavLink to="/jobs" className={({isActive}) => `nav-link${isActive ? ' active' : ''}`}>Companies</NavLink>
+          {/* <NavLink to="/interview-experience" className={({isActive}) => `nav-link${isActive ? ' active' : ''}`}>Interview Experience</NavLink> */}
           
           {/* Authentication Links */}
           <div className="auth-dropdown">

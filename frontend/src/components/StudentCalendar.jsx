@@ -12,7 +12,7 @@ const StudentCalendar = () => {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [showEventModal, setShowEventModal] = useState(false);
 
-  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
   useEffect(() => {
     fetchCalendarEvents();
@@ -39,11 +39,71 @@ const StudentCalendar = () => {
       }
 
       if (!response.ok) {
-        throw new Error('Failed to fetch calendar events');
+        const txt = await response.text();
+        throw new Error(`Failed to fetch calendar events: ${response.status} ${txt}`);
       }
 
       const eventsData = await response.json();
-      setEvents(eventsData);
+      // If backend returns no events, synthesize from jobs as a fallback
+      if (Array.isArray(eventsData) && eventsData.length > 0) {
+        setEvents(eventsData);
+      } else {
+        try {
+          const jobsRes = await fetch(`${API_BASE_URL}/api/jobs`, { headers: { 'Content-Type': 'application/json' } });
+          if (jobsRes.ok) {
+            const jobs = await jobsRes.json();
+            const now = new Date();
+            const synth = [];
+            jobs.forEach(job => {
+              // Drive date event
+              if (job.driveDate) {
+                const d = new Date(job.driveDate);
+                if (!isNaN(d.getTime()) && d >= now) {
+                  synth.push({
+                    id: `drive-${job._id}`,
+                    title: `Job Drive - ${job.position || job.title || 'Position'}`,
+                    start: d,
+                    allDay: true,
+                    color: '#10B981',
+                    extendedProps: {
+                      type: 'drive',
+                      company: job.companyName,
+                      position: job.position,
+                      location: job.location,
+                      package: job.salaryPackage
+                    }
+                  });
+                }
+              }
+              // Application deadline event
+              if (job.applicationDeadline) {
+                const d = new Date(job.applicationDeadline);
+                if (!isNaN(d.getTime()) && d >= now) {
+                  synth.push({
+                    id: `deadline-${job._id}`,
+                    title: `Deadline - ${job.position || job.title || 'Position'}`,
+                    start: d,
+                    allDay: true,
+                    color: '#F59E0B',
+                    extendedProps: {
+                      type: 'deadline',
+                      company: job.companyName,
+                      position: job.position,
+                      action: 'Application Deadline'
+                    }
+                  });
+                }
+              }
+            });
+            setEvents(synth);
+          } else {
+            setEvents([]);
+          }
+        } catch (e) {
+          console.warn('Fallback jobs fetch for calendar failed:', e);
+          setEvents([]);
+        }
+      }
       
     } catch (error) {
       console.error('Error fetching calendar events:', error);
