@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { signup, signin } from "../../api/auth";
+import { signup, signin, forgotPassword, verifyOtp, resetPassword } from "../../api/auth";
 import { toast } from "react-hot-toast";
+import { Eye, EyeOff } from "lucide-react";
 
 function Sign() {
   // Register vs Sign-in
@@ -18,6 +19,16 @@ function Sign() {
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [valid, setValid] = useState({});
+  const [showForgot, setShowForgot] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [forgotStep, setForgotStep] = useState("idle"); // idle | sent | verified
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [resetPasswordValue, setResetPasswordValue] = useState("");
+  const [resetConfirmPasswordValue, setResetConfirmPasswordValue] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [showResetConfirmPassword, setShowResetConfirmPassword] = useState(false);
 
   // Simple validators
   const validateField = (name, value) => {
@@ -118,6 +129,97 @@ function Sign() {
     setErrors({});
     setTouched({});
     setValid({});
+  };
+
+  const handleForgotRequest = async (e) => {
+    e.preventDefault();
+    const emailToUse = forgotEmail || form.email;
+    if (!emailToUse) {
+      toast.error("Please enter your registered email.");
+      return;
+    }
+    try {
+      setForgotLoading(true);
+      await forgotPassword(emailToUse);
+      toast.success("If an account exists, an OTP has been sent to your email.");
+      setForgotStep("sent");
+    } catch (err) {
+      console.error("Forgot password error:", err);
+      toast.success("If an account exists, an OTP has been sent to your email.");
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    const emailToUse = forgotEmail || form.email;
+    if (!emailToUse || !otp) {
+      toast.error("Please enter email and OTP.");
+      return;
+    }
+    try {
+      setForgotLoading(true);
+      const res = await verifyOtp({ email: emailToUse, otp });
+      if (res.resetToken) {
+        localStorage.setItem("passwordResetToken", res.resetToken);
+      }
+      toast.success("OTP verified. Please set a new password.");
+      setForgotStep("verified");
+    } catch (err) {
+      console.error("Verify OTP error:", err);
+      const message = err?.response?.data?.error || "Invalid or expired OTP. Please request a new one.";
+      toast.error(message);
+      setForgotStep("idle");
+      setOtp("");
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    if (!resetPasswordValue || !resetConfirmPasswordValue) {
+      toast.error("Please enter and confirm your new password.");
+      return;
+    }
+    if (resetPasswordValue !== resetConfirmPasswordValue) {
+      toast.error("Passwords do not match.");
+      return;
+    }
+    const token = localStorage.getItem("passwordResetToken");
+    if (!token) {
+      toast.error("Reset token missing. Please restart the forgot password process.");
+      return;
+    }
+    try {
+      setResetLoading(true);
+      await resetPassword({
+        token,
+        newPassword: resetPasswordValue,
+        confirmPassword: resetConfirmPasswordValue
+      });
+      toast.success("Password reset successfully. You can now log in with your new password.");
+      localStorage.removeItem("passwordResetToken");
+      setShowForgot(false);
+      setForgotStep("idle");
+      setOtp("");
+      setResetPasswordValue("");
+      setResetConfirmPasswordValue("");
+    } catch (err) {
+      console.error("Reset password error:", err);
+      const message = err?.response?.data?.error || "Failed to reset password.";
+      if (message.toLowerCase().includes("reset token")) {
+        toast.error("Your reset session expired. Please request a new OTP.");
+        localStorage.removeItem("passwordResetToken");
+        setForgotStep("idle");
+        setOtp("");
+      } else {
+        toast.error(message);
+      }
+    } finally {
+      setResetLoading(false);
+    }
   };
 
   return (
@@ -226,6 +328,135 @@ function Sign() {
             {isRegister ? "Create account" : "Sign In"}
           </button>
         </form>
+
+        {!isRegister && (
+          <div className="mt-3 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setShowForgot((prev) => !prev)}
+              className="text-xs text-[var(--color-primary)] hover:underline"
+            >
+              Forgot Password?
+            </button>
+          </div>
+        )}
+
+        {!isRegister && showForgot && (
+          <div className="mt-4 border-t border-[var(--color-border)] pt-4">
+            <h2 className="text-sm font-semibold mb-2">Reset Password</h2>
+            <form className="space-y-3" autoComplete="off">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium">Registered Email</label>
+                <input
+                  type="email"
+                  value={forgotEmail || form.email}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className="h-9 px-3 rounded-md bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] text-sm"
+                />
+              </div>
+
+              {forgotStep === "sent" && (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium">Enter 6-digit OTP</label>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    placeholder="123456"
+                    className="h-9 px-3 rounded-md bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] text-sm tracking-[0.3em]"
+                  />
+                </div>
+              )}
+
+              {forgotStep !== "verified" && (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleForgotRequest}
+                    disabled={forgotLoading}
+                    className="flex-1 h-9 rounded-md border border-[var(--color-primary)] text-[var(--color-primary)] text-xs font-medium hover:bg-[var(--color-primary)]/5 disabled:opacity-60"
+                  >
+                    {forgotStep === "sent" ? "Resend OTP" : "Send OTP"}
+                  </button>
+                  {forgotStep === "sent" && (
+                    <button
+                      type="button"
+                      onClick={handleVerifyOtp}
+                      disabled={forgotLoading}
+                      className="flex-1 h-9 rounded-md bg-[var(--color-primary)] text-white text-xs font-medium hover:bg-[var(--color-primary-700)] disabled:opacity-60"
+                    >
+                      Verify OTP
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {forgotStep === "verified" && (
+                <>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-medium">New Password</label>
+                    <div className="relative">
+                      <input
+                        type={showResetPassword ? 'text' : 'password'}
+                        name="new-password"
+                        autoComplete="new-password"
+                        value={resetPasswordValue}
+                        onChange={(e) => setResetPasswordValue(e.target.value)}
+                        placeholder="Enter new password"
+                        className="h-9 w-full pr-10 pl-3 rounded-md bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowResetPassword((prev) => !prev)}
+                        className="absolute inset-y-0 right-2 flex items-center text-[var(--color-text-muted)] hover:text-[var(--color-primary)] focus:outline-none"
+                        aria-label={showResetPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showResetPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-medium">Confirm New Password</label>
+                    <div className="relative">
+                      <input
+                        type={showResetConfirmPassword ? 'text' : 'password'}
+                        name="confirm-new-password"
+                        autoComplete="new-password"
+                        value={resetConfirmPasswordValue}
+                        onChange={(e) => setResetConfirmPasswordValue(e.target.value)}
+                        placeholder="Confirm new password"
+                        className="h-9 w-full pr-10 pl-3 rounded-md bg-[var(--color-bg)] border border-[var(--color-border)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowResetConfirmPassword((prev) => !prev)}
+                        className="absolute inset-y-0 right-2 flex items-center text-[var(--color-text-muted)] hover:text-[var(--color-primary)] focus:outline-none"
+                        aria-label={showResetConfirmPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showResetConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleResetPassword}
+                    disabled={resetLoading}
+                    className="w-full h-9 rounded-md bg-[var(--color-primary)] text-white text-xs font-medium hover:bg-[var(--color-primary-700)] disabled:opacity-60"
+                  >
+                    {resetLoading ? "Resetting..." : "Set New Password"}
+                  </button>
+                </>
+              )}
+
+              <p className="text-[10px] text-[var(--color-text-muted)]">
+                We will not reveal whether this email is registered. If the OTP is valid, a temporary reset token
+                will be stored securely in your browser and used to update your password.
+              </p>
+            </form>
+          </div>
+        )}
 
         {errors.general && (
           <div className="mt-3 text-sm text-red-500" role="alert">{errors.general}</div>

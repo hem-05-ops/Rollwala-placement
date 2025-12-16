@@ -19,8 +19,14 @@ import ScrollToTop from "./components/ScrollToTop";
 import StudentLogin from "./components/StudentLogin";
 import StudentRegister from "./components/StudentRegister";
 import StudentDashboard from "./components/StudentDashboard";
+import PracticeCourseList from "./components/PracticeCourseList";
+import PracticeQuiz from "./components/PracticeQuiz";
+import PracticeResult from "./components/PracticeResult";
 import ApplicationManagement from "./components/ApplicationManagement";
 import AdminAnalytics from "./components/AdminAnalytics";
+import AdminPracticeQuestions from "./components/AdminPracticeQuestions";
+import AdminStudentApprovals from "./components/AdminStudentApprovals";
+import AdminInterviewExperiences from "./components/AdminInterviewExperiences";
 
 import "../src/index.css";
 
@@ -132,6 +138,11 @@ function App() {
           {/* Student Protected Routes */}
           <Route path="/student-dashboard" element={<StudentDashboard />} />
 
+          {/* Student Practice Module Routes */}
+          <Route path="/practice-courses" element={<PracticeCourseList />} />
+          <Route path="/practice/:courseId" element={<PracticeQuiz />} />
+          <Route path="/practice/:courseId/result" element={<PracticeResult />} />
+
           {/* Admin Routes */}
           <Route path="/admin-login" element={<AdminLogin />} />
           <Route
@@ -151,6 +162,22 @@ function App() {
             }
           />
           <Route
+            path="/admin-students"
+            element={
+              <ProtectedRoute requireAdmin={true}>
+                <AdminStudentApprovals />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin-practice-questions"
+            element={
+              <ProtectedRoute requireAdmin={true}>
+                <AdminPracticeQuestions />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/application-management"
             element={
               <ProtectedRoute requireAdmin={true}>
@@ -163,6 +190,14 @@ function App() {
             element={
               <ProtectedRoute requireAdmin={true}>
                 <AdminAnalytics />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin-interview-experiences"
+            element={
+              <ProtectedRoute requireAdmin={true}>
+                <AdminInterviewExperiences />
               </ProtectedRoute>
             }
           />

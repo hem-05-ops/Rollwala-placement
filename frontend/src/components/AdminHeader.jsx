@@ -1,6 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import './AdminHeader.css';
+import logo from '../assets/gulogo2.png';
+
 
 const AdminHeader = () => {
   const navigate = useNavigate();
@@ -21,9 +23,16 @@ const AdminHeader = () => {
   return (
     <header className="admin-header">
       <div className="admin-header-content">
+        <img 
+          src={logo} 
+          alt="Rollwala Logo" 
+          className="admin-logo"
+          title="Go to Admin Analytics"
+          onClick={() => navigate('/admin-analytics')}
+        />
         <div className="admin-header-left">
-          <h1>PMS Admin Panel</h1>
-          <span className="admin-subtitle">Placement Management System</span>
+          <h1>Rollwala Admin Panel</h1>
+          {/* <span className="admin-subtitle">Placement Management System</span> */}
         </div>
         
         <div className="admin-header-center">
@@ -44,15 +53,33 @@ const AdminHeader = () => {
                 </button>
                 <button 
                   className="nav-btn"
+                  onClick={() => handleNavigation('/admin-students')}
+                >
+                  Student Approvals
+                </button>
+                <button 
+                  className="nav-btn"
                   onClick={() => handleNavigation('/admin-management')}
                 >
                   User Management
+                </button>
+                <button
+                  className="nav-btn"
+                  onClick={() => handleNavigation('/admin-practice-questions')}
+                >
+                  Practice Questions
                 </button>
                 <button 
                   className="nav-btn"
                   onClick={() => handleNavigation('/admin-analytics')}
                 >
                   📊 Analytics
+                </button>
+                <button 
+                  className="nav-btn"
+                  onClick={() => handleNavigation('/admin-interview-experiences')}
+                >
+                  💼 Interview Experiences
                 </button>
               </>
             )}
