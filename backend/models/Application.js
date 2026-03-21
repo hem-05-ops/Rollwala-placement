@@ -15,6 +15,7 @@ const applicationSchema = new mongoose.Schema({
         applicantCourse: { type: String },
         applicantYear: { type: String },
         applicantBranch: { type: String },
+        resume: { type: String },
         status: { type: String, enum: ['pending', 'shortlisted', 'interviewed', 'selected', 'rejected'], default: 'pending' },
         appliedAt: { type: Date, default: Date.now },
         formResponses: [formResponseSchema],

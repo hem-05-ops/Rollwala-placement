@@ -1,59 +1,49 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./interviewExperience.css";
 import InterviewDetail from "./InterviewDetail";
+import { toast } from "react-hot-toast";
 
-const dummyData = [
-  {
-    id: 1,
-    company: "Google",
-    role: "SDE",
-    experience:
-      "I had three rounds: 1st was DSA (leetcode-style), 2nd was system design, 3rd was HR. The DSA round was tough but fair, with questions on trees and dynamic programming. The system design round focused on designing a URL shortener. The HR round was friendly and focused on my projects and teamwork. My advice: practice DSA daily and be ready to explain your thought process.",
-  },
-  {
-    id: 2,
-    company: "Microsoft",
-    role: "Intern",
-    experience:
-    "The process had an online assessment, followed by two interviews. The OA was mostly MCQs and a couple of coding questions. The interviews were focused on problem-solving and my resume projects. They really liked when I explained my approach step by step.",
-  },
-  {
-    id: 3,
-    company: "Amazon",
-    role: "SDE",
-    experience:
-    "There were two technical rounds and one bar-raiser. The first round was all about data structures, especially arrays and strings. The second round was a mix of coding and behavioral questions. ",
-  },
-  {
-    id: 4,
-    company: "Goldman Sachs",
-    role: "Analyst",
-    experience:
-    "There was a hackerrank test, then a group discussion, and finally two interviews. The interviews were a mix of technical and HR. They asked about finance basics, puzzles, and my motivation for joining GS. Be confident and clear about why you want the role.",
-  },
-  {
-    id: 5,
-    company: "Google",
-    role: "SWE",
-    experience:
-      "The process was long but rewarding. Four rounds: two technical, one design, one HR. The technical rounds were deep on algorithms and data structures. The design round was about scaling a chat app. The HR round was about my teamwork and leadership experiences. Practice mock interviews!",
-  },
-];
-
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 export default function InterviewExperience() {
   const [view, setView] = useState("read");
   const [filter, setFilter] = useState({ company: "", role: "" });
-  const [experiences, setExperiences] = useState(dummyData);
-  const [form, setForm] = useState({ company: "", role: "", experience: "" });
+  const [experiences, setExperiences] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({ 
+    company: "", 
+    role: "", 
+    experience: "",
+    package: "",
+    difficulty: "Medium",
+    rounds: [],
+    tips: ""
+  });
   const [selected, setSelected] = useState(null);
 
-  // Delete experience handler
-  const handleDelete = (id, e) => {
-    e.stopPropagation();
-    if (window.confirm('Are you sure you want to delete this experience?')) {
-      setExperiences(experiences.filter(exp => exp.id !== id));
+  // Fetch approved interview experiences from API
+  useEffect(() => {
+    fetchExperiences();
+  }, []);
+
+  const fetchExperiences = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/api/interview-experiences/approved`);
+      if (response.ok) {
+        const data = await response.json();
+        setExperiences(data);
+      } else {
+        console.error('Failed to fetch experiences');
+        toast.error('Failed to load interview experiences');
+      }
+    } catch (error) {
+      console.error('Error fetching experiences:', error);
+      toast.error('Failed to load interview experiences');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -71,14 +61,60 @@ export default function InterviewExperience() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleFormSubmit = (e) => {
+  const handleFormSubmit = async (e) => {
     e.preventDefault();
-    setExperiences([
-      ...experiences,
-      { ...form, id: experiences.length + 1 },
-    ]);
-    setForm({ company: "", role: "", experience: "" });
-    setView("read");
+    
+    // Check if user is logged in
+    const token = localStorage.getItem('token');
+    if (!token) {
+      toast.error('Please log in to submit an interview experience');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const response = await fetch(`${API_BASE_URL}/api/interview-experiences/submit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          company: form.company,
+          role: form.role,
+          experience: form.experience,
+          package: form.package || undefined,
+          difficulty: form.difficulty,
+          rounds: form.rounds.filter(r => r.trim()),
+          tips: form.tips || undefined
+        })
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        toast.success(data.message || 'Interview experience submitted successfully! It will be reviewed by admin.');
+        setForm({ 
+          company: "", 
+          role: "", 
+          experience: "",
+          package: "",
+          difficulty: "Medium",
+          rounds: [],
+          tips: ""
+        });
+        setView("read");
+        // Refresh experiences list
+        fetchExperiences();
+      } else {
+        toast.error(data.error || 'Failed to submit experience');
+      }
+    } catch (error) {
+      console.error('Submission error:', error);
+      toast.error('Failed to submit experience');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (selected) {
@@ -133,7 +169,43 @@ export default function InterviewExperience() {
               rows={7}
             />
           </div>
-          <button type="submit">Submit Experience</button>
+          <div className="ie-form-group">
+            <label htmlFor="package">Package (Optional)</label>
+            <input
+              id="package"
+              name="package"
+              placeholder="e.g. 12 LPA"
+              value={form.package}
+              onChange={handleFormChange}
+            />
+          </div>
+          <div className="ie-form-group">
+            <label htmlFor="difficulty">Difficulty Level</label>
+            <select
+              id="difficulty"
+              name="difficulty"
+              value={form.difficulty}
+              onChange={handleFormChange}
+            >
+              <option value="Easy">Easy</option>
+              <option value="Medium">Medium</option>
+              <option value="Hard">Hard</option>
+            </select>
+          </div>
+          <div className="ie-form-group">
+            <label htmlFor="tips">Tips & Advice (Optional)</label>
+            <textarea
+              id="tips"
+              name="tips"
+              placeholder="Share any tips or advice for future candidates..."
+              value={form.tips}
+              onChange={handleFormChange}
+              rows={4}
+            />
+          </div>
+          <button type="submit" disabled={submitting}>
+            {submitting ? 'Submitting...' : 'Submit Experience'}
+          </button>
         </form>
       )}
       {view === "read" && (
@@ -152,26 +224,32 @@ export default function InterviewExperience() {
               onChange={handleFilter}
             />
           </div>
-          <ul className="ie-list ie-list-redesign">
-            {filtered.length === 0 && <li className="ie-empty">No experiences found.</li>}
-            {filtered.map((exp) => (
-              <li key={exp.id} className="ie-item ie-card" onClick={() => setSelected(exp)}>
-                <div className="ie-meta">
-                  <span className="ie-company">{exp.company}</span>
-                  <span className="ie-role">{exp.role}</span>
-                </div>
-                <p className="ie-text">
-                  {exp.experience.length > 120
-                    ? exp.experience.slice(0, 120) + "..."
-                    : exp.experience}
-                </p>
-                <div className="ie-card-actions">
-                  <button className="ie-view-btn" onClick={e => {e.stopPropagation(); setSelected(exp);}}>Read</button>
-                  <button className="ie-delete-btn" onClick={e => handleDelete(exp.id, e)}>Delete</button>
-                </div>
-              </li>
-            ))}
-          </ul>
+          {loading ? (
+            <div className="ie-loading">Loading interview experiences...</div>
+          ) : (
+            <ul className="ie-list ie-list-redesign">
+              {filtered.length === 0 && <li className="ie-empty">No experiences found.</li>}
+              {filtered.map((exp) => (
+                <li key={exp._id || exp.id} className="ie-item ie-card" onClick={() => setSelected(exp)}>
+                  <div className="ie-meta">
+                    <span className="ie-company">{exp.company}</span>
+                    <span className="ie-role">{exp.role}</span>
+                    {exp.submittedBy && (
+                      <span className="ie-submitted-by">by {exp.submittedBy}</span>
+                    )}
+                  </div>
+                  <p className="ie-text">
+                    {exp.experience && exp.experience.length > 120
+                      ? exp.experience.slice(0, 120) + "..."
+                      : exp.experience}
+                  </p>
+                  <div className="ie-card-actions">
+                    <button className="ie-view-btn" onClick={e => {e.stopPropagation(); setSelected(exp);}}>Read</button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
     </div>

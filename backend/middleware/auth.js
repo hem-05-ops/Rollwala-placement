@@ -26,6 +26,13 @@ exports.requireAuth = async (req, res, next) => {
       return res.status(401).json({ error: 'User no longer exists' });
     }
 
+    // Check if user account is active (explicitly check if not true)
+    // This catches false, null, undefined, and any other falsy values
+    if (user.isActive !== true) {
+      console.log(`Access blocked for deactivated user: ${user.email}, isActive: ${user.isActive}`);
+      return res.status(403).json({ error: 'Your account has been deactivated. Please contact the administrator.' });
+    }
+
     // Add user information to request
     req.user = {
       id: user._id.toString(),
@@ -65,6 +72,14 @@ exports.requireAdmin = (req, res, next) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   if (!['admin', 'super_admin'].includes(req.user.role)) {
     return res.status(403).json({ error: 'Admin access required' });
+  }
+  return next();
+};
+
+exports.requireSuperAdmin = (req, res, next) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  if (req.user.role !== 'super_admin') {
+    return res.status(403).json({ error: 'Super admin access required' });
   }
   return next();
 };

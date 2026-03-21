@@ -12,13 +12,14 @@ import hardikJoshi from "../assets/faculties/hardikJoshi.webp";
 import jignaSatani from "../assets/faculties/jignaSatani.webp";
 import suchitPurohit from "../assets/faculties/suchitPurohit.webp";
 import chirag from "../assets/faculties/chiragsir.jpg";
+import maitri from "../assets/faculties/maitrimam.jpg";
 // Executive Director
 const executiveDirector = {
   name: "Dr. Hiren Joshi",
   title: "Head of Director",
   photo:
     hirenJoshi,
-  phone: "+91-98765-00001",
+  //  phone: "+91-98765-00001",
   email: "hiren.joshi@dcs.ac.in",
 };
 
@@ -29,56 +30,59 @@ const dcpdTeam = [
     name: "Dr. Jyoti Pareek",
     title: "Course Coordinator",
     photo: jyotiPareek, // Use the imported image
-    phone: "+91-98765-43210",
+    // phone: "+91-98765-43210",
     email: "jyotipareek@dcs.ac.in",
-  },
-  {
-    name: "Mr. Jay Patel",
-    title: "Senior DCS Trainer",
-    photo: jayPatel, // Use the imported image
-    phone: "+91-98765-12345",
-    email: "jay.patel@dcs.ac.in",
   },
   {
     name: "Dr. Hardik Joshi",
     title: "Senior DCS Trainer",
     photo:
      hardikJoshi,
-    phone: "+91-98765-67890",
+    // phone: "+91-98765-67890",
     email: "hardik.joshi@dcs.ac.in",
   },
+  {
+    name: "Mr. Jay Patel",
+    title: "Senior DCS Trainer",
+    photo: jayPatel, // Use the imported image
+    // phone: "+91-98765-12345",
+    email: "jay.patel@dcs.ac.in",
+  },
+   {
+    name: "Dr. Suchit Purohit",
+    title: "Senior DCS Coordinator",
+    photo:
+     suchitPurohit,
+    // phone: "+91-98765-11111",
+    email: "suchit.purohit@dcs.ac.in",
+  },
+   {
+    name: "Dr. Maitri Jhaveri",
+    title: "Senior DCS Trainer",
+    photo:
+      maitri,
+    // phone: "+91-98765-33333",
+    email: "maitri.jhaveri@dcs.ac.in",
+  },
+  
   {
     name: "Dr. Jigna Satani",
     title: "Senior DCS Trainer",
     photo:
       jignaSatani,
-    phone: "+91-98765-24680",
+    // phone: "+91-98765-24680",
     email: "jigna.satani@dcs.ac.in",
   },
-  {
-    name: "Dr. Suchit Purohit",
-    title: "Senior DCS Coordinator",
-    photo:
-     suchitPurohit,
-    phone: "+91-98765-11111",
-    email: "suchit.purohit@dcs.ac.in",
-  },
+ 
   {
     name: "Mr. Chirag Pujara",
     title: "DCS Trainer",
     photo:
       chirag,
-    phone: "+91-98765-22222",
+    // phone: "+91-98765-22222",
     email: "chirag.pujara@dcs.ac.in",
   },
-  // {
-  //   name: "Mr. Manish Verma",
-  //   title: "DCPD Assistant",
-  //   photo:
-  //     "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&h=200&fit=crop&crop=face",
-  //   phone: "+91-98765-33333",
-  //   email: "manish.verma@cgc.ac.in",
-  // },
+ 
   // {
   //   name: "Ms. Kavya Reddy",
   //   title: "DCPD Trainer",
@@ -280,7 +284,7 @@ function Contact() {
 
     if (!validateField("name", formData.name)) isValid = false;
     if (!validateField("email", formData.email)) isValid = false;
-    if (!validateField("phone", formData.phone)) isValid = false;
+    // if (!validateField("phone", formData.phone)) isValid = false;
     if (!validateField("subject", formData.subject)) isValid = false;
     if (!validateField("message", formData.message)) isValid = false;
 
@@ -315,7 +319,7 @@ function Contact() {
         setFormData({
           name: "",
           email: "",
-          phone: "",
+          // phone: "",
           subject: "",
           message: "",
         });
@@ -373,12 +377,12 @@ function Contact() {
                 <span className="contact-label">Address:</span> Gujarat University, Navranpura ,Ahmedabad, India
               </p>
               <p>
-                <span className="contact-label">Phone:</span>{" "}
-                <a href="tel:+911234567890">+91-8758129102</a>
+                {/* <span className="contact-label">Phone:</span>{" "}
+                <a href="tel:+911234567890">+91-8758129102</a> */}
               </p>
               <p>
                 <span className="contact-label">Email:</span>{" "}
-                <a href="mailto:dcs@dcs.ac.in">dcs@dcs.ac.in</a>
+                <a href="mailto:dcs@dcs.ac.in">DCSGUplacement@gmail.com</a>
               </p>
               <p>
                 <span className="contact-label">Website:</span>{" "}
@@ -410,10 +414,10 @@ function Contact() {
                 <p className="executive-title">{executiveDirector.title}</p>
                 <div className="executive-contact">
                   <p>
-                    <span className="contact-label">Phone:</span>{" "}
+                    {/* <span className="contact-label">Phone:</span>{" "}
                     <a href={`tel:${executiveDirector.phone}`}>
                       {executiveDirector.phone}
-                    </a>
+                    </a> */}
                   </p>
                   <p>
                     <span className="contact-label">Email:</span>{" "}
@@ -443,10 +447,10 @@ function Contact() {
                   <h3>{member.name}</h3>
                   <p className="team-title">{member.title}</p>
                   <div className="team-contact">
-                    <p>
+                    {/* <p>
                       <span className="contact-label">Phone:</span>{" "}
                       <a href={`tel:${member.phone}`}>{member.phone}</a>
-                    </p>
+                    </p> */}
                     <p>
                       <span className="contact-label">Email:</span>{" "}
                       <a href={`mailto:${member.email}`}>{member.email}</a>

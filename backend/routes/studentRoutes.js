@@ -1,7 +1,39 @@
 const express = require('express');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const router = express.Router();
 const { requireAuth, requireRole } = require('../middleware/auth');
 const studentController = require('../controllers/studentController');
+
+// Multer setup for resume uploads (PDF only)
+const uploadsDir = path.join(__dirname, '..', 'uploads');
+const resumesDir = path.join(uploadsDir, 'resumes');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+if (!fs.existsSync(resumesDir)) {
+  fs.mkdirSync(resumesDir, { recursive: true });
+}
+
+const resumeStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, resumesDir);
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + path.extname(file.originalname));
+  }
+});
+
+const resumeFileFilter = (req, file, cb) => {
+  if (file.mimetype === 'application/pdf') {
+    cb(null, true);
+  } else {
+    cb(new Error('Only PDF files are allowed for resume uploads'), false);
+  }
+};
+
+const uploadResume = multer({ storage: resumeStorage, fileFilter: resumeFileFilter });
 
 // Test route
 router.get('/test', (req, res) => {
@@ -17,108 +49,13 @@ router.put('/profile', requireAuth, requireRole('student'), studentController.up
 router.post('/apply', requireAuth, requireRole('student'), studentController.applyForJob);
 router.get('/applications', requireAuth, requireRole('student'), studentController.getStudentApplications);
 router.get('/eligible-jobs', requireAuth, requireRole('student'), studentController.getEligibleJobs);
+router.get('/calendar-events', requireAuth, requireRole('student'), studentController.getStudentCalendarEvents);
+
+// Resume upload (PDF only)
+router.post('/resume', requireAuth, requireRole('student'), uploadResume.single('resume'), studentController.uploadResume);
 
 // Create missing student profile
 router.post('/create-profile', requireAuth, requireRole('student'), studentController.createStudentProfile);
 
-module.exports = router; // Make sure this line exists
-// Debug route to check user and student data (remove in production)
-router.get('/debug/:userId', async (req, res) => {
-  try {
-    const userId = req.params.userId;
-    
-    const user = await User.findById(userId);
-    const student = await Student.findOne({ user: userId });
-    
-    res.json({
-      userExists: !!user,
-      studentExists: !!student,
-      user: user,
-      student: student
-    });
-  } catch (error) {
-    console.error('Debug error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Create missing student profile
-router.post('/create-profile', requireAuth, requireRole('student'), async (req, res) => {
-  try {
-    const { rollNo, course, branch, year, cgpa, contact } = req.body;
-    
-    // Check if student profile already exists
-    const existingStudent = await Student.findOne({ user: req.user.id });
-    if (existingStudent) {
-      return res.status(409).json({ error: 'Student profile already exists' });
-    }
-    
-    // Create new student profile
-    const student = await Student.create({
-      user: req.user.id,
-      rollNo,
-      course,
-      branch,
-      year,
-      cgpa,
-      contact
-    });
-    
-    const populatedStudent = await Student.findById(student._id)
-      .populate('user', 'name email role');
-    
-    res.status(201).json(populatedStudent);
-  } catch (error) {
-    console.error('Create profile error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Create missing student profile
-router.post('/create-profile', requireAuth, requireRole('student'), async (req, res) => {
-  try {
-    const { rollNo, course, branch, year, cgpa, contact } = req.body;
-    
-    // Check if student profile already exists
-    const existingStudent = await Student.findOne({ user: req.user.id });
-    if (existingStudent) {
-      return res.status(409).json({ error: 'Student profile already exists' });
-    }
-    
-    // Create new student profile
-    const student = await Student.create({
-      user: req.user.id,
-      rollNo,
-      course,
-      branch,
-      year,
-      cgpa,
-      contact
-    });
-    
-    const populatedStudent = await Student.findById(student._id)
-      .populate('user', 'name email role');
-    
-    res.status(201).json(populatedStudent);
-  } catch (error) {
-    console.error('Create profile error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Add this route before module.exports
-router.post('/create-profile', requireAuth, requireRole('student'), studentController.createStudentProfile);
-// Debug route to check if API is working
-router.get('/debug-check', (req, res) => {
-  res.json({ message: 'Student API is working', timestamp: new Date().toISOString() });
-});
-
-router.get('/test', (req, res) => {
-  res.json({ message: 'Student API is working!', timestamp: new Date().toISOString() });
-});
-console.log('Student routes loaded'); // Add this line
-// Test route directly in main server file
-
-// Then mount your student routes
-// app.use('/api/students', studentRoutes);
+console.log('Student routes loaded');
 module.exports = router;

@@ -1,0 +1,53 @@
+# 📌 TASK: Implement and validate all features related to the "Student" module ONLY
+# ✅ PROJECT: This is my complete placement portal project already imported from Git (Do NOT reset or touch other modules)
+
+# 🎯 OBJECTIVE:
+Only work on the Student module.
+- Analyze the existing codebase and identify the current student-related files.
+- Check which features already exist and which are missing or incomplete.
+
+# ✅ FEATURES TO ENSURE IN STUDENT MODULE:
+
+1. 👤 Authentication & Profile
+   - [ ] JWT-based Student Login/Register
+   - [ ] Update profile (personal + academic + resume upload)
+   - [ ] Password hashing with bcrypt
+
+2. 💼 Job & Application
+   - [ ] Browse eligible jobs (filtered by course/branch/year)
+   - [ ] One-click apply (POST job ID to API)
+   - [ ] View list of applied jobs (basic tracker without shortlisting status)
+
+3. 📅 Calendar Integration
+   - [ ] Student view of upcoming drives/interviews in calendar format
+   - [ ] Events pulled from job/interview collection
+   - [ ] Use FullCalendar (React or JS depending on frontend)
+
+4. 📝 Dashboard & Experience
+   - [ ] Dashboard overview (stats, job count, applications)
+   - [ ] View/update resume, certificates, projects
+   - [ ] Submit interview experience
+
+# 📂 EXISTING PROJECT STRUCTURE:
+The project is already running with backend + frontend + MongoDB.
+You will:
+- [x] Keep the structure intact
+- [x] Add/modify only student-related components
+- [x] Do not remove or alter anything related to admin/superadmin/public modules
+
+# 🔧 TECHNOLOGY USED:
+- Frontend: React + Tailwind
+- Backend: Node.js + Express
+- DB: MongoDB with Mongoose
+- Auth: JWT, bcrypt
+
+# 🔍 FINAL CHECK:
+- [ ] Test all student APIs and UI functionality
+- [ ] Ensure database updates work properly
+- [ ] No breaking changes to other user roles
+- [ ] Push only the changes made to student module
+
+# 🚫 IMPORTANT:
+- Do not delete or overwrite any existing admin, public, or super admin files.
+- Only add/modify files directly related to student functionality.
+- Preserve the Git history and structure.

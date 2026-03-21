@@ -1,6 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { api } from '../lib/apiService';
 import AdminHeader from './AdminHeader';
+import * as XLSX from 'xlsx';
 import './ApplicationManagement.css';
+import { API_ENDPOINTS } from '../config/api';
 
 const ApplicationManagement = () => {
   const [applications, setApplications] = useState([]);
@@ -13,27 +16,20 @@ const ApplicationManagement = () => {
     totalApplications: 0,
     statusBreakdown: []
   });
+  const [exporting, setExporting] = useState(false);
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const listTopRef = useRef(null);
 
   // Fetch all applications
   const fetchApplications = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
       const url = selectedJob === 'all' 
-        ? '/api/applications'
-        : `/api/applications?jobId=${selectedJob}`;
-      
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
+        ? '/api/applications/all'
+        : `/api/applications/job/${selectedJob}`;
+      const data = await api.get(url, { requireAuth: true });
       setApplications(data);
       setError('');
     } catch (err) {
@@ -47,19 +43,8 @@ const ApplicationManagement = () => {
   // Fetch jobs for filter dropdown
   const fetchJobs = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/jobs', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setJobs(data);
-      } else {
-        console.error('Failed to fetch jobs');
-      }
+      const data = await api.get('/api/jobs');
+      setJobs(data);
     } catch (err) {
       console.error('Error fetching jobs:', err);
     }
@@ -68,22 +53,11 @@ const ApplicationManagement = () => {
   // Fetch statistics
   const fetchStats = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/applications/stats', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      const data = await api.get('/api/applications/stats', { requireAuth: true });
+      setStats({
+        totalApplications: data.totalApplications || 0,
+        statusBreakdown: data.statusBreakdown || []
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        setStats({
-          totalApplications: data.totalApplications || 0,
-          statusBreakdown: data.statusBreakdown || []
-        });
-      } else {
-        console.error('Failed to fetch stats');
-      }
     } catch (err) {
       console.error('Error fetching stats:', err);
     }
@@ -92,27 +66,86 @@ const ApplicationManagement = () => {
   // Update application status
   const updateApplicationStatus = async (applicationId, status, adminNotes) => {
     try {
-      const response = await fetch(`/api/applications/${applicationId}/status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({ status, adminNotes })
-      });
-
-      if (response.ok) {
+      const result = await api.put(`/api/applications/${applicationId}/status`, { status, adminNotes }, { requireAuth: true });
+      if (result) {
         setSuccess('Application status updated successfully!');
         setTimeout(() => setSuccess(''), 3000);
         fetchApplications();
         fetchStats();
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error || 'Failed to update status');
       }
     } catch (err) {
       setError('Error updating application status');
       console.error('Update status error:', err);
+    }
+  };
+
+  // Export applications to Excel
+  const exportToExcel = async () => {
+    try {
+      setExporting(true);
+      
+      // Prepare data for export
+      const dataToExport = applications.map(app => {
+        // Resolve job information from populated object or fallback to jobs list by id
+        const jobRef = app.job;
+        let jobInfo = null;
+        if (jobRef && typeof jobRef === 'object') {
+          jobInfo = jobRef;
+          if (!jobInfo.position && !jobInfo.companyName && jobInfo._id) {
+            const byId = jobs.find(j => j._id === jobInfo._id);
+            if (byId) jobInfo = byId;
+          }
+        } else if (jobRef) {
+          jobInfo = jobs.find(j => j._id === jobRef) || {};
+        } else {
+          jobInfo = {};
+        }
+
+        // Extract form responses as a single string
+        const formResponses = app.formResponses 
+          ? app.formResponses.map(resp => 
+              `${resp.fieldLabel}: ${Array.isArray(resp.response) ? resp.response.join(', ') : resp.response || 'Not provided'}`
+            ).join('; ')
+          : '';
+        
+        return {
+          'Applicant Name': app.applicantName || 'N/A',
+          'Email': app.applicantEmail || 'N/A',
+          'Phone': app.applicantPhone || 'N/A',
+          'Course': app.applicantCourse || 'N/A',
+          'Year': app.applicantYear || 'N/A',
+          'Track': app.applicantBranch || 'N/A',
+          'Resume Path': app.resume || (app.student?.resume || ''),
+          'Status': app.status || 'pending',
+          'Applied Date': app.appliedAt ? new Date(app.appliedAt).toLocaleDateString('en-US') : 'N/A',
+          'Position': jobInfo?.position || jobInfo?.title || 'N/A',
+          'Company': jobInfo?.companyName || 'N/A',
+          'Job Type': jobInfo?.jobType || 'N/A',
+          'Form Responses': formResponses,
+          'Admin Notes': app.adminNotes || ''
+        };
+      });
+      
+      // Create worksheet
+      const ws = XLSX.utils.json_to_sheet(dataToExport);
+      
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Applications');
+      
+      // Generate file name with current date
+      const fileName = `Applications_Export_${new Date().toISOString().split('T')[0]}.xlsx`;
+      
+      // Export to Excel
+      XLSX.writeFile(wb, fileName);
+      
+      setSuccess('Data exported successfully!');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError('Error exporting data to Excel');
+      console.error('Export error:', err);
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -177,6 +210,7 @@ const ApplicationManagement = () => {
 
   // Fetch applications when selectedJob changes
   useEffect(() => {
+    setCurrentPage(1); // reset page on filter change
     fetchApplications();
   }, [selectedJob]);
 
@@ -188,21 +222,52 @@ const ApplicationManagement = () => {
     }
   }, [error, success]);
 
+  // Clamp current page if data size changes
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(applications.length / pageSize));
+    if (currentPage > maxPage) setCurrentPage(maxPage);
+  }, [applications, pageSize, currentPage]);
+
+  // Derived pagination values
+  const totalPages = Math.max(1, Math.ceil(applications.length / pageSize));
+  const paginatedApplications = applications.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const startIndex = (currentPage - 1) * pageSize + 1;
+  const endIndex = Math.min(currentPage * pageSize, applications.length);
+
+  // Scroll to top of list on page change
+  useEffect(() => {
+    if (listTopRef.current) {
+      listTopRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [currentPage]);
+
   if (loading) {
     return (
-      <div className="application-management-container">
+      <>
         <AdminHeader />
-        <div className="loading">Loading applications...</div>
-      </div>
+        <div className="application-management-container">
+          <div className="loading">Loading applications...</div>
+        </div>
+      </>
     );
   }
 
   return (
-    <div className="application-management-container">
+    <>
       <AdminHeader />
+      <div className="application-management-container">
       
       <div className="application-management-header">
         <h1>📋 Application Management</h1>
+        <div className="header-actions">
+          <button 
+            onClick={exportToExcel} 
+            disabled={exporting || applications.length === 0}
+            className="export-btn"
+          >
+            {exporting ? 'Exporting...' : '📊 Export to Excel'}
+          </button>
+        </div>
         <div className="stats-overview">
           <div className="stat-card">
             <div className="stat-number">{stats.totalApplications}</div>
@@ -246,8 +311,32 @@ const ApplicationManagement = () => {
         </select>
       </div>
 
-      <div className="applications-list">
-        <h2>Applications ({applications.length})</h2>
+      <div className="applications-list" ref={listTopRef}>
+        <div className="applications-header-row">
+          <h2>Applications ({applications.length})</h2>
+          <div className="list-controls">
+            <label className="page-size">
+              Show
+              <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}>
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+              per page
+            </label>
+          </div>
+        </div>
+        <div className="pagination-top">
+          <span className="range">{applications.length ? `${startIndex}-${endIndex} of ${applications.length}` : '0 of 0'}</span>
+          <div className="pagination">
+            <button className="page-btn" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Prev</button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).slice(Math.max(0, currentPage - 3), Math.min(totalPages, currentPage + 2)).map(n => (
+              <button key={n} className={`page-btn ${currentPage === n ? 'active' : ''}`} onClick={() => setCurrentPage(n)}>{n}</button>
+            ))}
+            <button className="page-btn" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</button>
+          </div>
+        </div>
         
         {applications.length === 0 ? (
           <div className="no-applications">
@@ -255,7 +344,7 @@ const ApplicationManagement = () => {
           </div>
         ) : (
           <div className="applications-grid">
-            {applications.map((application) => (
+            {paginatedApplications.map((application) => (
               <div key={application._id} className="application-card">
                 <div className="application-header">
                   <div className="applicant-info">
@@ -283,23 +372,57 @@ const ApplicationManagement = () => {
                     <span className="detail-value">{application.applicantYear || 'N/A'}</span>
                   </div>
                   <div className="detail-row">
-                    <span className="detail-label">Branch:</span>
+                    <span className="detail-label">Track:</span>
                     <span className="detail-value">{application.applicantBranch || 'N/A'}</span>
                   </div>
                   <div className="detail-row">
                     <span className="detail-label">Applied:</span>
                     <span className="detail-value">{formatDate(application.appliedAt)}</span>
                   </div>
+                  {(application.resume || application.student?.resume) && (
+                    <div className="detail-row">
+                      <span className="detail-label">Resume:</span>
+                      <span className="detail-value">
+                        <a
+                          href={`${API_ENDPOINTS.UPLOADS}${application.resume || application.student?.resume}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          View Resume (PDF)
+                        </a>
+                      </span>
+                    </div>
+                  )}
                 </div>
                 
-                {application.jobId && (
-                  <div className="job-info">
-                    <h4>Job Details</h4>
-                    <p><strong>Position:</strong> {application.jobId?.position || 'N/A'}</p>
-                    <p><strong>Company:</strong> {application.jobId?.companyName || 'N/A'}</p>
-                    <p><strong>Type:</strong> {application.jobId?.campusType || 'N/A'}</p>
-                  </div>
-                )}
+                {(() => {
+                  // Resolve job details from populated application.job
+                  const jobRef = application.job;
+                  let jobObj = null;
+                  if (jobRef && typeof jobRef === 'object') {
+                    jobObj = jobRef;
+                    // If populated object lacks expected fields, fallback to jobs list using _id
+                    if (!jobObj.position && !jobObj.companyName && jobObj._id) {
+                      const byId = jobs.find(j => j._id === jobObj._id);
+                      if (byId) jobObj = byId;
+                    }
+                  } else if (jobRef) {
+                    jobObj = jobs.find(j => j._id === jobRef);
+                  }
+
+                  const position = jobObj?.position || jobObj?.title || 'N/A';
+                  const company = jobObj?.companyName || 'N/A';
+                  const type = jobObj?.jobType || 'N/A';
+                  if (!jobObj) return null;
+                  return (
+                    <div className="job-info">
+                      <h4>Job Details</h4>
+                      <p><strong>Position:</strong> {position}</p>
+                      <p><strong>Company:</strong> {company}</p>
+                      <p><strong>Type:</strong> {type}</p>
+                    </div>
+                  );
+                })()}
                 
                 {application.formResponses && application.formResponses.length > 0 && (
                   <div className="form-responses">
@@ -330,9 +453,7 @@ const ApplicationManagement = () => {
                     >
                       <option value="pending">Pending</option>
                       <option value="shortlisted">Shortlisted</option>
-                      <option value="interviewed">Interviewed</option>
                       <option value="selected">Selected</option>
-                      <option value="rejected">Rejected</option>
                     </select>
                   </div>
                   
@@ -354,8 +475,20 @@ const ApplicationManagement = () => {
             ))}
           </div>
         )}
+
+        <div className="pagination-bottom">
+          <span className="range">{applications.length ? `${startIndex}-${endIndex} of ${applications.length}` : '0 of 0'}</span>
+          <div className="pagination">
+            <button className="page-btn" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Prev</button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).slice(Math.max(0, currentPage - 3), Math.min(totalPages, currentPage + 2)).map(n => (
+              <button key={n} className={`page-btn ${currentPage === n ? 'active' : ''}`} onClick={() => setCurrentPage(n)}>{n}</button>
+            ))}
+            <button className="page-btn" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</button>
+          </div>
+        </div>
       </div>
     </div>
+    </>
   );
 };
 

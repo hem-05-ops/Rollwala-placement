@@ -62,3 +62,33 @@ export const toggleAdminStatus = async (adminId, currentStatus) => {
     throw error.response?.data || error.message;
   }
 };
+
+// Get all pending students awaiting approval
+export const getPendingStudents = async () => {
+  try {
+    const response = await api.get(`${API_ENDPOINTS.ADMIN}/students/pending`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+// Approve a specific student by ID
+export const approveStudent = async (studentId) => {
+  try {
+    const response = await api.patch(`${API_ENDPOINTS.ADMIN}/students/${studentId}/approve`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+// Cancel a specific student registration request by ID
+export const cancelStudent = async (studentId) => {
+  try {
+    const response = await api.delete(`${API_ENDPOINTS.ADMIN}/students/${studentId}/cancel`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};

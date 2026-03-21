@@ -1,5 +1,5 @@
-// API Configuration - CHANGE PORT 3000 TO 5000
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'; // ← Change this line
+// API Configuration — fallback port MUST match backend/.env PORT value (3000)
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 export const API_ENDPOINTS = {
   JOBS: `${API_BASE_URL}/api/jobs`,
