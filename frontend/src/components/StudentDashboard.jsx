@@ -13,7 +13,9 @@ import {
   Eye,
   X,
   MessageSquare,
-  Clock
+  Clock,
+  MapPin,
+  IndianRupee
 } from 'lucide-react';
 import StudentCalendar from './StudentCalendar';
 import { getAuthToken, handleUnauthorized } from '../lib/auth';
@@ -28,10 +30,13 @@ const StudentDashboard = () => {
   const [selectedJob, setSelectedJob] = useState(null);
   const [showInterviewForm, setShowInterviewForm] = useState(false);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
+  const [interviewExperiences, setInterviewExperiences] = useState([]);
+  const [loadingExperiences, setLoadingExperiences] = useState(false);
+  const [experienceFilter, setExperienceFilter] = useState({ company: '', role: '' });
   const navigate = useNavigate();
 
   // Add API_BASE_URL constant
-  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
   // Logo utility function
   const getCompanyLogoUrl = (logoPath) => {
@@ -341,6 +346,29 @@ const StudentDashboard = () => {
     }
   };
 
+  const fetchInterviewExperiences = async () => {
+    try {
+      setLoadingExperiences(true);
+      const response = await fetch(`${API_BASE_URL}/api/interview-experiences/approved`);
+      if (response.ok) {
+        const data = await response.json();
+        setInterviewExperiences(data || []);
+      } else {
+        console.error('Failed to fetch experiences');
+      }
+    } catch (error) {
+      console.error('Error fetching experiences:', error);
+    } finally {
+      setLoadingExperiences(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'experiences') {
+      fetchInterviewExperiences();
+    }
+  }, [activeTab]);
+
   const handleInterviewSubmission = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -358,7 +386,7 @@ const StudentDashboard = () => {
 
       const data = await response.json();
       if (response.ok) {
-        toast.success('Interview experience submitted successfully!');
+        toast.success('Interview experience submitted successfully! It will be reviewed by admin.');
         setShowInterviewForm(false);
         setInterviewFormData({
           company: '',
@@ -369,6 +397,10 @@ const StudentDashboard = () => {
           rounds: [],
           tips: ''
         });
+        // Refresh experiences list
+        if (activeTab === 'experiences') {
+          fetchInterviewExperiences();
+        }
       } else {
         toast.error(data.error || 'Submission failed');
       }
@@ -659,9 +691,18 @@ const StudentDashboard = () => {
                     </div>
                     
                     <div className="space-y-2 mb-4">
-                      <p className="text-sm text-gray-600">📍 {job.location}</p>
-                      <p className="text-sm text-gray-600">💰 {job.salaryPackage}</p>
-                      <p className="text-sm text-gray-600">📅 Apply by: {new Date(job.applicationDeadline).toLocaleDateString()}</p>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <MapPin className="w-4 h-4 mr-2 text-gray-400" />
+                        <span>{job.location}</span>
+                      </div>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <IndianRupee className="w-4 h-4 mr-2 text-gray-400" />
+                        <span>{job.salaryPackage}</span>
+                      </div>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Calendar className="w-4 h-4 mr-2 text-gray-400" />
+                        <span>Apply by: {new Date(job.applicationDeadline).toLocaleDateString()}</span>
+                      </div>
                     </div>
 
                     {job.jobDescriptionFile && (
@@ -691,6 +732,10 @@ const StudentDashboard = () => {
                       >
                         Not eligible to apply (Year)
                       </button>
+                    ) : (job.minCgpa > 0 && student?.cgpa < job.minCgpa) ? (
+                      <div className="w-full py-2 px-4 bg-red-100 text-red-700 border border-red-300 rounded-md text-sm font-bold text-center">
+                        You are not eligible to apply
+                      </div>
                     ) : (
                       <button
                         onClick={() => {
@@ -772,12 +817,97 @@ const StudentDashboard = () => {
                 Share Experience
               </button>
             </div>
-            
-            <div className="bg-white p-6 rounded-lg shadow text-center text-gray-500">
-              <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-              <p>View and share interview experiences with your peers.</p>
-              <p className="text-sm">Help others prepare by sharing your interview journey!</p>
+
+            {/* Filters */}
+            <div className="bg-white p-4 rounded-lg shadow">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input
+                  type="text"
+                  placeholder="Filter by Company"
+                  value={experienceFilter.company}
+                  onChange={(e) => setExperienceFilter({ ...experienceFilter, company: e.target.value })}
+                  className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <input
+                  type="text"
+                  placeholder="Filter by Role"
+                  value={experienceFilter.role}
+                  onChange={(e) => setExperienceFilter({ ...experienceFilter, role: e.target.value })}
+                  className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
             </div>
+
+            {/* Experiences List */}
+            {loadingExperiences ? (
+              <div className="bg-white p-6 rounded-lg shadow text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-4 text-gray-500">Loading experiences...</p>
+              </div>
+            ) : interviewExperiences.filter(exp => 
+              (!experienceFilter.company || exp.company?.toLowerCase().includes(experienceFilter.company.toLowerCase())) &&
+              (!experienceFilter.role || exp.role?.toLowerCase().includes(experienceFilter.role.toLowerCase()))
+            ).length === 0 ? (
+              <div className="bg-white p-6 rounded-lg shadow text-center text-gray-500">
+                <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <p>No interview experiences found.</p>
+                <p className="text-sm mt-2">Be the first to share your interview experience!</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {interviewExperiences
+                  .filter(exp => 
+                    (!experienceFilter.company || exp.company?.toLowerCase().includes(experienceFilter.company.toLowerCase())) &&
+                    (!experienceFilter.role || exp.role?.toLowerCase().includes(experienceFilter.role.toLowerCase()))
+                  )
+                  .map((exp) => (
+                    <div key={exp._id} className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900">{exp.company}</h3>
+                          <p className="text-sm text-gray-600">{exp.role}</p>
+                        </div>
+                        {exp.difficulty && (
+                          <span className={`px-2 py-1 text-xs rounded ${
+                            exp.difficulty === 'Easy' ? 'bg-green-100 text-green-800' :
+                            exp.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {exp.difficulty}
+                          </span>
+                        )}
+                      </div>
+                      
+                      {exp.submittedBy && (
+                        <p className="text-xs text-gray-500 mb-2">By: {exp.submittedBy}</p>
+                      )}
+                      
+                      {exp.package && (
+                        <p className="text-sm font-medium text-gray-700 mb-2">Package: {exp.package}</p>
+                      )}
+                      
+                      <p className="text-sm text-gray-600 mb-4 line-clamp-3">
+                        {exp.experience?.substring(0, 150)}
+                        {exp.experience?.length > 150 ? '...' : ''}
+                      </p>
+                      
+                      {exp.tips && (
+                        <div className="mb-3 p-2 bg-green-50 rounded text-xs">
+                          <strong>Tip:</strong> {exp.tips.substring(0, 100)}
+                          {exp.tips.length > 100 ? '...' : ''}
+                        </div>
+                      )}
+                      
+                      <button
+                        onClick={() => navigate(`/interview-experiences`, { state: { selectedExperience: exp } })}
+                        className="w-full px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700"
+                      >
+                        Read More
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            )}
           </div>
         )}
       </div>

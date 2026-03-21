@@ -2,8 +2,63 @@
 const Application = require('../models/Application');
 const Job = require('../models/Job');
 const Student = require('../models/Student');
+const User = require('../models/User');
 const { sendBulkEmail } = require('../services/emailService');
 // Note: exceljs is lazily required inside the export handler to avoid boot-time crashes if missing
+
+// ─── Shared eligibility helper ───────────────────────────────────────────────
+const runEligibilityCheck = (job, student) => {
+  const reasons = [];
+
+  // 1. Course check
+  if (Array.isArray(job.eligibleCourses) && job.eligibleCourses.length > 0) {
+    if (!job.eligibleCourses.includes(student.course)) {
+      reasons.push({
+        criterion: 'Course',
+        required: job.eligibleCourses.join(', '),
+        yours: student.course || 'Not set'
+      });
+    }
+  }
+
+  // 2. Branch check
+  if (Array.isArray(job.eligibleBranches) && job.eligibleBranches.length > 0) {
+    if (!job.eligibleBranches.includes(student.branch)) {
+      reasons.push({
+        criterion: 'Branch',
+        required: job.eligibleBranches.join(', '),
+        yours: student.branch || 'Not set'
+      });
+    }
+  }
+
+  // 3. Year check
+  if (Array.isArray(job.eligibleYears) && job.eligibleYears.length > 0) {
+    if (!job.eligibleYears.includes(student.year)) {
+      reasons.push({
+        criterion: 'Year',
+        required: job.eligibleYears.join(', '),
+        yours: student.year || 'Not set'
+      });
+    }
+  }
+
+  // 4. CGPA check
+  const minCgpa = typeof job.minCgpa === 'number' ? job.minCgpa : 0;
+  if (minCgpa > 0) {
+    const studentCgpa = typeof student.cgpa === 'number' ? student.cgpa : 0;
+    if (studentCgpa < minCgpa) {
+      reasons.push({
+        criterion: 'CGPA',
+        required: minCgpa,
+        yours: studentCgpa
+      });
+    }
+  }
+
+  return { eligible: reasons.length === 0, reasons };
+};
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Get applications with optional filters (admin only)
 exports.getApplications = async (req, res) => {
@@ -55,19 +110,47 @@ exports.submitApplication = async (req, res) => {
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
-    
-    // Get student data (assuming student is logged in)
-    const studentId = req.user._id; // Assuming you have authentication
-    const student = await Student.findById(studentId);
+
+    // Parse studentId — support string or object sent from frontend
+    let studentId = req.body.studentId;
+    if (!studentId || typeof studentId === 'object') {
+      // Fallback: look up student by applicantEmail
+      if (applicantData?.applicantEmail) {
+        const user = await User.findOne({ email: applicantData.applicantEmail });
+        if (user) {
+          const found = await Student.findOne({ user: user._id });
+          studentId = found?._id;
+        }
+      }
+    }
+
+    let student = null;
+    if (studentId) {
+      student = await Student.findById(studentId);
+      if (!student) {
+        student = await Student.findOne({ user: studentId });
+      }
+    }
     
     if (!student) {
-      return res.status(404).json({ error: 'Student not found' });
+      return res.status(404).json({ error: 'Student not found. Please log in as a student.' });
     }
+
+    // ── Eligibility check (hard-block ineligible students) ──────────────────
+    const eligibility = runEligibilityCheck(job, student);
+    if (!eligibility.eligible) {
+      return res.status(403).json({
+        error: 'You are not eligible to apply for this job.',
+        eligible: false,
+        reasons: eligibility.reasons
+      });
+    }
+    // ────────────────────────────────────────────────────────────────────────
     
     // Check if student already applied for this job
     const existingApplication = await Application.findOne({
       job: jobId,
-      student: studentId
+      student: student._id
     });
     
     if (existingApplication) {
@@ -77,10 +160,10 @@ exports.submitApplication = async (req, res) => {
     // Create new application
     const application = new Application({
       job: jobId,
-      student: studentId,
-      applicantName: applicantData?.applicantName || student.name,
-      applicantEmail: applicantData?.applicantEmail || student.email,
-      applicantPhone: applicantData?.applicantPhone || student.phone,
+      student: student._id,
+      applicantName: applicantData?.applicantName || `${student.firstName} ${student.lastName}`,
+      applicantEmail: applicantData?.applicantEmail,
+      applicantPhone: applicantData?.applicantPhone || student.contact,
       applicantCourse: applicantData?.applicantCourse || student.course,
       applicantYear: applicantData?.applicantYear || student.year,
       applicantBranch: applicantData?.applicantBranch || student.branch,
@@ -91,8 +174,8 @@ exports.submitApplication = async (req, res) => {
     
     // Populate the saved application for response
     const populatedApplication = await Application.findById(application._id)
-      .populate('job', 'title company')
-      .populate('student', 'name email phone course year branch');
+      .populate('job', 'position companyName')
+      .populate('student', 'firstName lastName course year branch');
     
     res.status(201).json({
       success: true,
@@ -101,6 +184,60 @@ exports.submitApplication = async (req, res) => {
     });
   } catch (err) {
     console.error('Error submitting application:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Pre-check eligibility for a student before they apply
+exports.checkEligibility = async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const { studentId } = req.query;
+
+    const job = await Job.findById(jobId);
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+
+    let student = null;
+    if (studentId) {
+      // First try to find by Student ID directly
+      student = await Student.findById(studentId);
+      // If not found, the frontend might have passed the User._id by mistake/design
+      if (!student) {
+        student = await Student.findOne({ user: studentId });
+      }
+    }
+    if (!student) {
+      // Return job eligibility criteria without student-specific check
+      return res.json({
+        eligible: null,
+        notLoggedIn: true,
+        criteria: {
+          eligibleCourses: job.eligibleCourses || [],
+          eligibleBranches: job.eligibleBranches || [],
+          eligibleYears: job.eligibleYears || [],
+          minCgpa: job.minCgpa || 0
+        }
+      });
+    }
+
+    const result = runEligibilityCheck(job, student);
+    return res.json({
+      ...result,
+      studentProfile: {
+        course: student.course,
+        branch: student.branch,
+        year: student.year,
+        cgpa: student.cgpa
+      },
+      criteria: {
+        eligibleCourses: job.eligibleCourses || [],
+        eligibleBranches: job.eligibleBranches || [],
+        eligibleYears: job.eligibleYears || [],
+        minCgpa: job.minCgpa || 0
+      }
+    });
+  } catch (err) {
+    console.error('Error checking eligibility:', err);
     res.status(500).json({ error: err.message });
   }
 };

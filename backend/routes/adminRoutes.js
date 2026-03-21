@@ -34,5 +34,7 @@ router.get('/export-applications', requireAuth, requireAdmin, applicationControl
 router.get('/students/pending', requireAuth, requireAdmin, studentAdminController.getPendingStudents);
 router.patch('/students/:id/approve', requireAuth, requireAdmin, studentAdminController.approveStudent);
 router.delete('/students/:id/cancel', requireAuth, requireAdmin, studentAdminController.cancelStudent);
+// Emergency: approve all students who are stuck (isApproved is not strictly true)
+router.post('/students/bulk-approve-stuck', requireAuth, requireAdmin, studentAdminController.bulkApproveStuck);
 
 module.exports = router;

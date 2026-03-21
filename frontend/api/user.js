@@ -2,19 +2,27 @@
 
 const API_BASE_URL = 'http://localhost:3000/api';// Update with your backend URL
 
+// Helper function to get auth token
+const getAuthToken = () => {
+  return localStorage.getItem('adminToken') || localStorage.getItem('authToken') || '';
+};
+
 // Helper function for API calls
 const apiRequest = async (endpoint, options = {}) => {
   try {
+    const token = getAuthToken();
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : '',
         ...options.headers,
       },
       ...options,
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}` }));
+      throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
     }
 
     return await response.json();

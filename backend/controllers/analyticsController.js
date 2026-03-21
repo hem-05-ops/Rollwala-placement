@@ -3,63 +3,69 @@ const Job = require('../models/Job');
 const Student = require('../models/Student');
 const User = require('../models/User');
 
+// Internal helper function to get analytics overview data
+const getAnalyticsOverviewData = async () => {
+  // Get total counts
+  const totalStudents = await Student.countDocuments();
+  const totalJobs = await Job.countDocuments();
+  const totalApplications = await Application.countDocuments();
+  
+  // Get placement statistics
+  const placedStudents = await Application.countDocuments({ status: 'selected' });
+  const placementRate = totalApplications > 0 ? Math.round((placedStudents / totalApplications) * 100) : 0;
+  
+  // Get active jobs (posted in last 30 days)
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const activeJobs = await Job.countDocuments({ 
+    createdAt: { $gte: thirtyDaysAgo } 
+  });
+  
+  // Get recent applications (last 7 days)
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const recentApplications = await Application.countDocuments({
+    appliedAt: { $gte: sevenDaysAgo }
+  });
+  
+  // Get average package
+  const jobs = await Job.find({ salaryPackage: { $exists: true, $ne: '' } });
+  const packages = jobs.map(job => {
+    const match = job.salaryPackage.match(/(\d+(?:\.\d+)?)/);
+    return match ? parseFloat(match[1]) : null;
+  }).filter(pkg => pkg !== null);
+  
+  const averagePackage = packages.length > 0 
+    ? Math.round(packages.reduce((sum, pkg) => sum + pkg, 0) / packages.length) 
+    : 0;
+
+  return {
+    overview: {
+      totalStudents,
+      totalJobs,
+      totalApplications,
+      placementRate,
+      placedStudents,
+      activeJobs,
+      recentApplications,
+      averagePackage
+    }
+  };
+};
+
 // Get comprehensive analytics overview
 exports.getAnalyticsOverview = async (req, res) => {
   try {
-    // Get total counts
-    const totalStudents = await Student.countDocuments();
-    const totalJobs = await Job.countDocuments();
-    const totalApplications = await Application.countDocuments();
-    
-    // Get placement statistics
-    const placedStudents = await Application.countDocuments({ status: 'selected' });
-    const placementRate = totalApplications > 0 ? Math.round((placedStudents / totalApplications) * 100) : 0;
-    
-    // Get active jobs (posted in last 30 days)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const activeJobs = await Job.countDocuments({ 
-      createdAt: { $gte: thirtyDaysAgo } 
-    });
-    
-    // Get recent applications (last 7 days)
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const recentApplications = await Application.countDocuments({
-      appliedAt: { $gte: sevenDaysAgo }
-    });
-    
-    // Get average package
-    const jobs = await Job.find({ salaryPackage: { $exists: true, $ne: '' } });
-    const packages = jobs.map(job => {
-      const match = job.salaryPackage.match(/(\d+(?:\.\d+)?)/);
-      return match ? parseFloat(match[1]) : null;
-    }).filter(pkg => pkg !== null);
-    
-    const averagePackage = packages.length > 0 
-      ? Math.round(packages.reduce((sum, pkg) => sum + pkg, 0) / packages.length) 
-      : 0;
-
-    res.json({
-      overview: {
-        totalStudents,
-        totalJobs,
-        totalApplications,
-        placementRate,
-        placedStudents,
-        activeJobs,
-        recentApplications,
-        averagePackage
-      }
-    });
+    const data = await getAnalyticsOverviewData();
+    res.json(data);
   } catch (error) {
     console.error('Error fetching analytics overview:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };
 
-// Get application analytics with real aggregations
-exports.getApplicationAnalytics = async (req, res) => {
+// Internal helper function to get application analytics data
+const getApplicationAnalyticsData = async () => {
   try {
     // Application status distribution
     const statusStats = await Application.aggregate([
@@ -180,20 +186,31 @@ exports.getApplicationAnalytics = async (req, res) => {
       { $limit: 10 }
     ]);
 
-    res.json({
+    return {
       applicationsByStatus,
       courseWiseApplications,
       applicationsByMonth,
       topStudents
-    });
+    };
+  } catch (error) {
+    console.error('Error fetching application analytics:', error);
+    throw error;
+  }
+};
+
+// Get application analytics with real aggregations
+exports.getApplicationAnalytics = async (req, res) => {
+  try {
+    const data = await getApplicationAnalyticsData();
+    res.json(data);
   } catch (error) {
     console.error('Error fetching application analytics:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };
 
-// Get job analytics with real aggregations
-exports.getJobAnalytics = async (req, res) => {
+// Internal helper function to get job analytics data
+const getJobAnalyticsData = async () => {
   try {
     // Jobs posted by month (last 12 months)
     const yearAgo = new Date();
@@ -305,21 +322,32 @@ exports.getJobAnalytics = async (req, res) => {
       count: stat.count
     }));
 
-    res.json({
+    return {
       jobsByMonth: jobsByMonthFormatted,
       topCompanies: topCompaniesWithApps,
       packageDistribution,
       jobsByType,
       topPositions
-    });
+    };
+  } catch (error) {
+    console.error('Error fetching job analytics:', error);
+    throw error;
+  }
+};
+
+// Get job analytics with real aggregations
+exports.getJobAnalytics = async (req, res) => {
+  try {
+    const data = await getJobAnalyticsData();
+    res.json(data);
   } catch (error) {
     console.error('Error fetching job analytics:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };
 
-// Get user analytics
-exports.getUserAnalytics = async (req, res) => {
+// Internal helper function to get user analytics data
+const getUserAnalyticsData = async () => {
   try {
     // User distribution by role
     const usersByRole = await User.aggregate([
@@ -393,7 +421,7 @@ exports.getUserAnalytics = async (req, res) => {
       };
     });
 
-    res.json({
+    return {
       usersByRole: usersByRole.map(stat => ({
         role: stat._id.charAt(0).toUpperCase() + stat._id.slice(1),
         count: stat.count
@@ -411,7 +439,18 @@ exports.getUserAnalytics = async (req, res) => {
         count: stat.count
       })),
       registrationsByDay
-    });
+    };
+  } catch (error) {
+    console.error('Error fetching user analytics:', error);
+    throw error;
+  }
+};
+
+// Get user analytics
+exports.getUserAnalytics = async (req, res) => {
+  try {
+    const data = await getUserAnalyticsData();
+    res.json(data);
   } catch (error) {
     console.error('Error fetching user analytics:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -421,15 +460,15 @@ exports.getUserAnalytics = async (req, res) => {
 // Get comprehensive analytics report
 exports.getAnalyticsReport = async (req, res) => {
   try {
-    const [overview, applications, jobs, users] = await Promise.all([
-      exports.getAnalyticsOverview(req, { json: data => data }),
-      exports.getApplicationAnalytics(req, { json: data => data }),
-      exports.getJobAnalytics(req, { json: data => data }),
-      exports.getUserAnalytics(req, { json: data => data })
+    const [overviewData, applications, jobs, users] = await Promise.all([
+      getAnalyticsOverviewData(),
+      getApplicationAnalyticsData(),
+      getJobAnalyticsData(),
+      getUserAnalyticsData()
     ]);
 
     res.json({
-      overview: overview.overview,
+      overview: overviewData.overview,
       applications,
       jobs,
       users,

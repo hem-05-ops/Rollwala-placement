@@ -1,7 +1,7 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 
-const ProtectedRoute = ({ children, requireAdmin = false }) => {
+const ProtectedRoute = ({ children, requireAdmin = false, requireSuperAdmin = false }) => {
   // Check if user is authenticated
   const adminToken = localStorage.getItem('adminToken');
   const adminUser = localStorage.getItem('adminUser');
@@ -15,22 +15,28 @@ const ProtectedRoute = ({ children, requireAdmin = false }) => {
     return <Navigate to="/admin-login" replace />;
   }
 
-  if (requireAdmin) {
-    try {
-      const user = JSON.parse(adminUser);
-      console.log('ProtectedRoute - User role:', user.role);
+  try {
+    const user = JSON.parse(adminUser);
+    console.log('ProtectedRoute - User role:', user.role);
+
+    if (requireSuperAdmin) {
+      if (user.role !== 'super_admin') {
+        console.log('ProtectedRoute - Super admin access required, redirecting');
+        return <Navigate to="/admin-login" replace />;
+      }
+    } else if (requireAdmin) {
       if (user.role !== 'admin' && user.role !== 'super_admin') {
         console.log('ProtectedRoute - Invalid role, redirecting to login');
         // Redirect to admin login if not admin or super admin
         return <Navigate to="/admin-login" replace />;
       }
-    } catch (error) {
-      console.error('ProtectedRoute - Error parsing user:', error);
-      // Invalid user data, redirect to login
-      localStorage.removeItem('adminToken');
-      localStorage.removeItem('adminUser');
-      return <Navigate to="/admin-login" replace />;
     }
+  } catch (error) {
+    console.error('ProtectedRoute - Error parsing user:', error);
+    // Invalid user data, redirect to login
+    localStorage.removeItem('adminToken');
+    localStorage.removeItem('adminUser');
+    return <Navigate to="/admin-login" replace />;
   }
 
   console.log('ProtectedRoute - Access granted');

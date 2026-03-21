@@ -23,6 +23,8 @@ const jobSchema = new mongoose.Schema({
   eligibleCourses: [String],
   eligibleYears: [String],
   eligibleBranches: [String],
+  eligibleTracks: [String],
+  minCgpa: { type: Number, default: 0, min: 0, max: 10 },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Job', jobSchema);

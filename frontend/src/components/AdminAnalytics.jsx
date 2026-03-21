@@ -99,7 +99,7 @@ const AdminAnalytics = () => {
           fetchWithAuth('/api/analytics/users')
         ]);
         setAnalyticsData({
-          users: {
+          usersSummary: {
             total: users?.usersByRole?.reduce((a, b) => a + (b.count || 0), 0) || 0,
             newThisWeek: users?.registrationsByDay?.slice(-7).reduce((a, b) => a + (b.count || 0), 0) || 0,
             growthRate: 0
@@ -212,19 +212,41 @@ const AdminAnalytics = () => {
 
         {/* Overview Cards (fallback to zeros if single endpoint structure is used) */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-lg shadow">
+          <div 
+            className="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow duration-200"
+            onClick={() => navigate('/admin-management')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate('/admin-management');
+              }
+            }}
+          >
             <div className="flex items-center">
               <div className="p-2 bg-blue-100 rounded-lg">
                 <Users className="h-6 w-6 text-blue-600" />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total Students</p>
-                <p className="text-2xl font-semibold text-gray-900">{analyticsData?.overview?.overview?.totalStudents ?? analyticsData?.overview?.totalStudents ?? analyticsData?.users?.total ?? 0}</p>
+                <p className="text-2xl font-semibold text-gray-900">{analyticsData?.overview?.overview?.totalStudents ?? analyticsData?.overview?.totalStudents ?? analyticsData?.usersSummary?.total ?? 0}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow">
+          <div 
+            className="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow duration-200"
+            onClick={() => navigate('/admin-job-posting?tab=manage')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate('/admin-job-posting?tab=manage');
+              }
+            }}
+          >
             <div className="flex items-center">
               <div className="p-2 bg-green-100 rounded-lg">
                 <Briefcase className="h-6 w-6 text-green-600" />
@@ -236,7 +258,18 @@ const AdminAnalytics = () => {
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow">
+          <div 
+            className="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow duration-200"
+            onClick={() => navigate('/application-management')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate('/application-management');
+              }
+            }}
+          >
             <div className="flex items-center">
               <div className="p-2 bg-yellow-100 rounded-lg">
                 <FileText className="h-6 w-6 text-yellow-600" />

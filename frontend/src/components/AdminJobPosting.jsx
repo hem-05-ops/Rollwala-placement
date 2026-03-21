@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import './AdminJobPosting.css';
 import { API_ENDPOINTS } from '../config/api';
 import AdminHeader from './AdminHeader';
@@ -27,7 +28,9 @@ const initialForm = {
   additionalInfo: '',
   eligibleCourses: [],
   eligibleBranches: [],
-  eligibleYears: []
+  eligibleYears: [],
+  eligibleTracks: [],
+  minCgpa: 0
 };
 
 // Add these arrays for dropdown options
@@ -35,15 +38,21 @@ const COURSES = ['BSc.CS', 'MSc.CS', 'MSc.AIML', 'MCA'];
 const BRANCHES = ['WD', 'AIML'];
 const YEARS = [ '2024', '2025', '2026', '2027'];
 const JOB_TYPES = ['Full-time', 'Part-time', 'Internship', 'Contract'];
+const TRACKS = ['.NET', 'Java', 'Data Science', 'Python', 'Web Development', 'Other'];
 
 const AdminJobPosting = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [jobPostings, setJobPostings] = useState([]);
   const [formData, setFormData] = useState(initialForm);
   const [logoPreview, setLogoPreview] = useState('');
   const [logoFile, setLogoFile] = useState(null);
   const [jobDescriptionFile, setJobDescriptionFile] = useState(null);
   const [editId, setEditId] = useState(null);
-  const [activeTab, setActiveTab] = useState('create');
+  const [activeTab, setActiveTab] = useState(() => {
+    // Check URL parameter for initial tab
+    const tabParam = searchParams.get('tab');
+    return tabParam === 'manage' ? 'manage' : 'create';
+  });
   const [adminRole, setAdminRole] = useState(() => {
     try {
       const raw = localStorage.getItem('adminUser');
@@ -210,6 +219,8 @@ const AdminJobPosting = () => {
       (formData.eligibleCourses || []).forEach(v => fd.append('eligibleCourses[]', v));
       (formData.eligibleBranches || []).forEach(v => fd.append('eligibleBranches[]', v));
       (formData.eligibleYears || []).forEach(v => fd.append('eligibleYears[]', v));
+      (formData.eligibleTracks || []).forEach(v => fd.append('eligibleTracks[]', v));
+      fd.append('minCgpa', formData.minCgpa ?? 0);
       // Also send multi fields for future compatibility (ignored by current backend if not handled)
       normalizedJobTypes.forEach(v => fd.append('jobTypes[]', v));
       normalizedPositions.forEach(v => fd.append('positions[]', v));
@@ -275,6 +286,8 @@ const AdminJobPosting = () => {
       eligibleCourses: Array.isArray(job.eligibleCourses) ? job.eligibleCourses : [],
       eligibleBranches: Array.isArray(job.eligibleBranches) ? job.eligibleBranches : [],
       eligibleYears: Array.isArray(job.eligibleYears) ? job.eligibleYears : [],
+      eligibleTracks: Array.isArray(job.eligibleTracks) ? job.eligibleTracks : [],
+      minCgpa: typeof job.minCgpa === 'number' ? job.minCgpa : 0,
       jobTypes: Array.isArray(job.jobTypes)
         ? job.jobTypes
         : (typeof job.jobType === 'string' && job.jobType.length
@@ -327,6 +340,12 @@ const AdminJobPosting = () => {
       setLogoFile(null);
     }
     setActiveTab(tab);
+    // Update URL parameter when tab changes
+    if (tab === 'manage') {
+      setSearchParams({ tab: 'manage' });
+    } else {
+      setSearchParams({});
+    }
   };
 
  // Replace this function in your AdminJobPosting.js:
@@ -617,7 +636,62 @@ const getJobDescriptionUrl = (posting) => {
                   )}
                 </div>
               </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <div className="eligibility-header">
+                    <label>Eligible Technology Tracks <span style={{fontWeight:'normal',fontSize:'0.85em'}}>(leave empty to allow all)</span></label>
+                    <div className="selection-controls">
+                      <button type="button" className="select-all-btn" onClick={() => handleSelectAll('eligibleTracks', TRACKS)}>
+                        {formData.eligibleTracks.length === TRACKS.length ? 'Clear All' : 'Select All'}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="checkbox-grid">
+                    {TRACKS.map(track => (
+                      <label key={track} className="checkbox-item">
+                        <input type="checkbox" checked={formData.eligibleTracks.includes(track)} onChange={() => handleCheckboxChange('eligibleTracks', track)} />
+                        <span className="checkbox-label">{track}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {formData.eligibleTracks.length > 0 && (
+                    <div className="selected-items">
+                      <span className="selected-label">Selected: </span>
+                      {formData.eligibleTracks.join(', ')}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Minimum CGPA */}
+              <div className="form-row">
+                <div className="form-group">
+                  <label>
+                    Minimum CGPA Required
+                    <span style={{ fontWeight: 'normal', fontSize: '0.85em', marginLeft: 6 }}>(0 = no requirement)</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="minCgpa"
+                    min="0"
+                    max="10"
+                    step="0.1"
+                    value={formData.minCgpa ?? 0}
+                    onChange={handleInputChange}
+                    style={{ maxWidth: 140 }}
+                    placeholder="e.g. 7.5"
+                  />
+                  {formData.minCgpa > 0 && (
+                    <div className="selected-items" style={{ marginTop: 6 }}>
+                      Students need CGPA ≥ <strong>{formData.minCgpa}</strong> to apply
+                    </div>
+                  )}
+                </div>
+              </div>
+
             </div>
+
 
             <div className="form-group">
               <label>Skills Required*</label>

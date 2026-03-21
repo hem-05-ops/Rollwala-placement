@@ -98,6 +98,13 @@ exports.login = async (req, res) => {
 return res.status(401).json({ error: 'Invalid email or password' });
     }
 
+    // Check if user account is active (explicitly check if not true)
+    // This catches false, null, undefined, and any other falsy values
+    if (user.isActive !== true) {
+      console.log(`Login blocked for deactivated user: ${user.email}, isActive: ${user.isActive}`);
+      return res.status(403).json({ error: 'Your account has been deactivated. Please contact the administrator.' });
+    }
+
     // If this is a student, ensure they have been approved before allowing login
     if (user.role === 'student') {
       const student = await Student.findOne({ user: user._id });

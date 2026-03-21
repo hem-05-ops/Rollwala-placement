@@ -21,6 +21,7 @@ const upload = multer({ storage });
 
 // Public routes
 router.post('/submit', upload.any(), applicationController.submitApplication);
+router.get('/eligibility/:jobId', applicationController.checkEligibility);
 
 // Protected routes (admin only)
 router.get('/', requireAuth, requireAdmin, applicationController.getApplications);

@@ -8,6 +8,7 @@ const studentSchema = new mongoose.Schema({
   course: { type: String, required: true, enum: ['BSc.CS', 'MSc.CS', 'MSc.AIML', 'MCA'] },
   // Branch is only required at business logic level for MSc.CS; allow null/undefined in DB
   branch: { type: String, enum: ['WD', 'AIML'], required: false },
+  track: { type: String, enum: ['.NET', 'Java', 'Data Science', 'Python', 'Web Development', 'Other'], required: false },
   year: { type: String, required: true, enum: ['1st', '2nd', '3rd', '4th', '5th'] },
   // CGPA can be filled later; default to 0
   cgpa: { type: Number, min: 0, max: 10, default: 0, required: false },

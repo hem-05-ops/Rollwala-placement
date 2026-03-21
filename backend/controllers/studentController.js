@@ -13,6 +13,9 @@ if (!JWT_SECRET) {
 }
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
+// Allowed track values (must match Student model enum)
+const VALID_TRACKS = ['.NET', 'Java', 'Data Science', 'Python', 'Web Development', 'Other'];
+
 // Student registration schema
 const studentRegisterSchema = z.object({
   firstName: z.string().min(1).max(100),
@@ -25,6 +28,8 @@ const studentRegisterSchema = z.object({
   // Track (branch) is required only for MSc.CS, optional otherwise
   branch: z.enum(['WD', 'AIML']).optional(),
   year: z.enum(['1st', '2nd', '3rd', '4th', '5th']),
+  // Technology track (e.g. Java, .NET, Data Science)
+  track: z.enum(['.NET', 'Java', 'Data Science', 'Python', 'Web Development', 'Other']).optional(),
   // CGPA made optional for now
   cgpa: z.number().min(0).max(10).optional(),
   contact: z.string().min(10).max(15)
@@ -93,6 +98,7 @@ exports.registerStudent = async (req, res) => {
       rollNo: payload.rollNo,
       course: payload.course,
       branch: payload.branch || undefined,
+      track: payload.track || undefined,
       year: payload.year,
       cgpa: payload.cgpa ?? 0,
       contact: payload.contact
@@ -328,6 +334,30 @@ exports.applyForJob = async (req, res) => {
       return res.status(409).json({ error: 'You have already applied for this job' });
     }
 
+    // Placement lock: if the student has already been selected in any company,
+    // they are not allowed to apply to another company.
+    const selectedApplication = await Application.findOne({
+      student: student._id,
+      status: 'selected'
+    }).populate('job', 'companyName position');
+
+    if (selectedApplication) {
+      const companyName = selectedApplication.job?.companyName || 'a company';
+      const position   = selectedApplication.job?.position   || 'a position';
+      return res.status(403).json({
+        error: `You have already been selected at ${companyName} for the position of ${position}. Students who have been placed cannot apply to other companies.`
+      });
+    }
+
+    // Track eligibility check: only enforce if the job specifies required tracks
+    if (Array.isArray(job.eligibleTracks) && job.eligibleTracks.length > 0) {
+      if (!student.track || !job.eligibleTracks.includes(student.track)) {
+        return res.status(403).json({
+          error: `You are not eligible for this job. Your track (${student.track || 'None'}) does not match the required track(s): ${job.eligibleTracks.join(', ')}.`
+        });
+      }
+    }
+
     // Create application
     const application = new Application({
       job: jobId,
@@ -405,6 +435,12 @@ exports.getEligibleJobs = async (req, res) => {
           $or: [
             { eligibleYears: { $in: [student.year] } },
             { eligibleYears: { $size: 0 } }
+          ]
+        },
+        {
+          $or: [
+            { eligibleTracks: { $in: student.track ? [student.track] : [] } },
+            { eligibleTracks: { $size: 0 } }
           ]
         }
       ]

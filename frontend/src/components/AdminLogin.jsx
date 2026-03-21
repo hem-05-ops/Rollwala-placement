@@ -138,17 +138,18 @@ const AdminLogin = () => {
       
       // Check if user has admin role
       if (response.user && (response.user.role === 'admin' || response.user.role === 'super_admin')) {
-        console.log('Admin login successful, redirecting to:', '/admin-analytics');
+        const redirectPath = response.user.role === 'super_admin' ? '/admin-analytics' : '/admin-job-posting';
+        console.log('Admin login successful, redirecting to:', redirectPath);
         console.log('User role:', response.user.role);
         toast.success('Welcome, admin! Redirecting...');
         // Token and user info are already stored in auth.js
-        // Redirect to admin analytics dashboard
-        navigate('/admin-analytics');
+        // Redirect based on role: super_admin to analytics, admin to job posting
+        navigate(redirectPath);
         // Fallback navigation if React Router doesn't work
         setTimeout(() => {
-          if (window.location.pathname !== '/admin-analytics') {
+          if (window.location.pathname !== redirectPath) {
             console.log('React Router navigation failed, using window.location');
-            window.location.href = '/admin-analytics';
+            window.location.href = redirectPath;
           }
         }, 1000);
       } else {

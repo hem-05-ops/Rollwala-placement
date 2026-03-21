@@ -35,10 +35,24 @@ main > *:first-child,
   width: 100%;
   max-width: none;
   margin: 0;
-  padding: 0; /* padding handled by header */
+  padding: 8px 20px; /* Add padding for logo spacing */
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 16px;
+}
+
+.admin-logo {
+  height: 50px;
+  width: auto;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.admin-logo:hover {
+  transform: scale(1.05);
 }
 
 .admin-header-left h1 {
@@ -148,6 +162,11 @@ main > *:first-child,
     flex-direction: column;
     gap: 15px;
     text-align: center;
+    padding: 8px 16px;
+  }
+  
+  .admin-logo {
+    height: 40px;
   }
   
   .admin-header-center {
@@ -167,5 +186,15 @@ main > *:first-child,
   
   .admin-user-info {
     align-items: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-logo {
+    height: 36px;
+  }
+  
+  .admin-header-content {
+    padding: 8px 12px;
   }
 }

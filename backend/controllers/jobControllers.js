@@ -43,11 +43,22 @@ exports.createJob = async (req, res) => {
         : [jobData['eligibleYears[]']];
       delete jobData['eligibleYears[]'];
     }
+
+    if (jobData['eligibleTracks[]']) {
+      jobData.eligibleTracks = Array.isArray(jobData['eligibleTracks[]'])
+        ? jobData['eligibleTracks[]']
+        : [jobData['eligibleTracks[]']];
+      delete jobData['eligibleTracks[]'];
+    }
     
     // Ensure arrays exist even if empty
     if (!jobData.eligibleCourses) jobData.eligibleCourses = [];
     if (!jobData.eligibleBranches) jobData.eligibleBranches = [];
     if (!jobData.eligibleYears) jobData.eligibleYears = [];
+    if (!jobData.eligibleTracks) jobData.eligibleTracks = [];
+
+    // Parse minCgpa (comes as string from FormData)
+    jobData.minCgpa = Math.min(10, Math.max(0, parseFloat(jobData.minCgpa) || 0));
     
     // Normalize optional multi-fields (forward compat)
     if (jobData['jobTypes[]']) {
@@ -123,6 +134,9 @@ exports.createJob = async (req, res) => {
         }
         if (Array.isArray(job.eligibleBranches) && job.eligibleBranches.length > 0) {
           criteria.branch = { $in: job.eligibleBranches };
+        }
+        if (Array.isArray(job.eligibleTracks) && job.eligibleTracks.length > 0) {
+          criteria.track = { $in: job.eligibleTracks };
         }
         let yearFilterApplied = false;
         let providedYears = Array.isArray(job.eligibleYears) ? job.eligibleYears : [];
@@ -274,11 +288,22 @@ exports.updateJob = async (req, res) => {
         : [jobData['eligibleYears[]']];
       delete jobData['eligibleYears[]'];
     }
+
+    if (jobData['eligibleTracks[]']) {
+      jobData.eligibleTracks = Array.isArray(jobData['eligibleTracks[]'])
+        ? jobData['eligibleTracks[]']
+        : [jobData['eligibleTracks[]']];
+      delete jobData['eligibleTracks[]'];
+    }
     
     // Ensure arrays exist even if empty
     if (!jobData.eligibleCourses) jobData.eligibleCourses = [];
     if (!jobData.eligibleBranches) jobData.eligibleBranches = [];
     if (!jobData.eligibleYears) jobData.eligibleYears = [];
+    if (!jobData.eligibleTracks) jobData.eligibleTracks = [];
+
+    // Parse minCgpa (comes as string from FormData)
+    jobData.minCgpa = Math.min(10, Math.max(0, parseFloat(jobData.minCgpa) || 0));
     
     // Handle file uploads for update - normalize req.files when using multer.any()
     let files = req.files || {};

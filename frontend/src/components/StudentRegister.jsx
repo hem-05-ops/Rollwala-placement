@@ -16,6 +16,7 @@ const StudentRegister = () => {
     course: '',
     branch: '',
     year: '',
+    track: '',
     cgpa: '',
     contact: ''
   });
@@ -29,6 +30,7 @@ const StudentRegister = () => {
   const courses = ['BSc.CS', 'MSc.CS', 'MSc.AIML', 'MCA'];
   const branches = ['WD', 'AIML'];
   const years = ['1st', '2nd', '3rd', '4th', '5th'];
+  const tracks = ['.NET', 'Java', 'Data Science', 'Python', 'Web Development', 'Other'];
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -92,6 +94,7 @@ const StudentRegister = () => {
           course: formData.course,
           branch: formData.branch,
           year: formData.year,
+          track: formData.track || undefined,
           // cgpa: parseFloat(formData.cgpa), // CGPA temporarily disabled
           contact: formData.contact
         }),
@@ -391,24 +394,25 @@ const StudentRegister = () => {
                 </div>
 
                 {/* CGPA input temporarily disabled */}
-                {/* <div>
-                  <label htmlFor="cgpa" className="block text-sm font-medium text-gray-700 mb-1">
-                    CGPA
+                {/* ... */}
+
+                <div>
+                  <label htmlFor="track" className="block text-sm font-medium text-gray-700 mb-1">
+                    Technology Track
                   </label>
-                  <input
-                    id="cgpa"
-                    name="cgpa"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="10"
-                    required
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500"
-                    placeholder="Enter your CGPA (0-10)"
-                    value={formData.cgpa}
+                  <select
+                    id="track"
+                    name="track"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    value={formData.track}
                     onChange={handleChange}
-                  />
-                </div> */}
+                  >
+                    <option value="">Select your track (optional)</option>
+                    {tracks.map(track => (
+                      <option key={track} value={track}>{track}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 
