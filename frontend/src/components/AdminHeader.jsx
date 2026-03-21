@@ -27,8 +27,8 @@ const AdminHeader = () => {
           src={logo} 
           alt="Rollwala Logo" 
           className="admin-logo"
-          title="Go to Admin Analytics"
-          onClick={() => navigate('/admin-analytics')}
+          title={isSuperAdmin ? "Go to Admin Analytics" : "Rollwala Admin Panel"}
+          onClick={() => navigate(isSuperAdmin ? '/admin-analytics' : '/admin-job-posting')}
         />
         <div className="admin-header-left">
           <h1>Rollwala Admin Panel</h1>
@@ -43,46 +43,44 @@ const AdminHeader = () => {
             >
             Job Management
             </button>
+            <button 
+              className="nav-btn"
+              onClick={() => handleNavigation('/application-management')}
+            >
+            Application Management
+            </button>
+            <button 
+              className="nav-btn"
+              onClick={() => handleNavigation('/admin-students')}
+            >
+              Student Approvals
+            </button>
+            <button 
+              className="nav-btn"
+              onClick={() => handleNavigation('/admin-management')}
+            >
+              User Management
+            </button>
+            <button
+              className="nav-btn"
+              onClick={() => handleNavigation('/admin-practice-questions')}
+            >
+              Practice Questions
+            </button>
             {isSuperAdmin && (
-              <>
-                <button 
-                  className="nav-btn"
-                  onClick={() => handleNavigation('/application-management')}
-                >
-                Application Management
-                </button>
-                <button 
-                  className="nav-btn"
-                  onClick={() => handleNavigation('/admin-students')}
-                >
-                  Student Approvals
-                </button>
-                <button 
-                  className="nav-btn"
-                  onClick={() => handleNavigation('/admin-management')}
-                >
-                  User Management
-                </button>
-                <button
-                  className="nav-btn"
-                  onClick={() => handleNavigation('/admin-practice-questions')}
-                >
-                  Practice Questions
-                </button>
-                <button 
-                  className="nav-btn"
-                  onClick={() => handleNavigation('/admin-analytics')}
-                >
-                  📊 Analytics
-                </button>
-                <button 
-                  className="nav-btn"
-                  onClick={() => handleNavigation('/admin-interview-experiences')}
-                >
-                  💼 Interview Experiences
-                </button>
-              </>
+              <button 
+                className="nav-btn"
+                onClick={() => handleNavigation('/admin-analytics')}
+              >
+                📊 Analytics
+              </button>
             )}
+            <button 
+              className="nav-btn"
+              onClick={() => handleNavigation('/admin-interview-experiences')}
+            >
+              💼 Interview Experiences
+            </button>
           </nav>
         </div>
         

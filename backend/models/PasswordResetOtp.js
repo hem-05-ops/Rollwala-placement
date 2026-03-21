@@ -17,4 +17,3 @@ passwordResetOtpSchema.index({ userId: 1, isUsed: 1, expiresAt: 1 });
 
 module.exports = mongoose.model('PasswordResetOtp', passwordResetOtpSchema);
 
-

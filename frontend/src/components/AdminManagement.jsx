@@ -20,13 +20,22 @@ const UserManagement = () => {
     role: 'student'
   });
 
+  // Get current user role
+  const adminUser = JSON.parse(localStorage.getItem('adminUser') || '{}');
+  const isSuperAdmin = adminUser.role === 'super_admin';
+
   // Role configuration based on your schema
-  const roles = [
+  // Admin users can only manage students and faculty (not admin or super_admin)
+  const allRoles = [
     { value: 'student', label: 'Student', icon: '' },
     { value: 'faculty', label: 'Faculty', icon: '' },
     { value: 'admin', label: 'Admin', icon: '' },
     { value: 'super_admin', label: 'Super Admin', icon: '' }
   ];
+  
+  const roles = isSuperAdmin 
+    ? allRoles 
+    : allRoles.filter(role => role.value !== 'super_admin' && role.value !== 'admin');
 
   useEffect(() => {
     fetchUsers();
@@ -52,12 +61,23 @@ const UserManagement = () => {
   const filterUsers = () => {
     let result = users;
 
+    // If user is admin (not super_admin), filter out super_admin and admin users
+    // Admin users can only manage students and faculty
+    if (!isSuperAdmin) {
+      result = result.filter(user => 
+        user.role !== 'super_admin' && 
+        user.role !== 'admin' && 
+        !user.isSuperAdmin
+      );
+    }
+
     // Apply search filter
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       result = result.filter(user => 
-        user.name.toLowerCase().includes(term) || 
-        user.email.toLowerCase().includes(term)
+        ((user.name || '').toLowerCase().includes(term)) ||
+        ((`${user.firstName || ''} ${user.lastName || ''}`.trim()).toLowerCase().includes(term)) ||
+        ((user.email || '').toLowerCase().includes(term))
       );
     }
 
@@ -144,16 +164,19 @@ const UserManagement = () => {
 
   if (loading) {
     return (
-      <div className="user-management-container">
+      <>
         <AdminHeader />
-        <div className="user-management-loading">Loading users...</div>
-      </div>
+        <div className="user-management-container">
+          <div className="user-management-loading">Loading users...</div>
+        </div>
+      </>
     );
   }
 
   return (
-    <div className="user-management-container">
+    <>
       <AdminHeader />
+      <div className="user-management-container">
       
       <div className="user-management-header">
         <h1>👥 User Management</h1>
@@ -330,14 +353,16 @@ const UserManagement = () => {
                   <button
                     className="toggle-status-btn"
                     onClick={() => handleToggleStatus(user._id, user.isActive)}
+                    disabled={!isSuperAdmin && (user.role === 'super_admin' || user.role === 'admin' || user.isSuperAdmin)}
+                    title={!isSuperAdmin && (user.role === 'super_admin' || user.role === 'admin' || user.isSuperAdmin) ? "Can only modify students and faculty" : ""}
                   >
                     {user.isActive ? '❌ Deactivate' : '✅ Activate'}
                   </button>
                   <button
                     className="delete-user-btn"
                     onClick={() => handleDeleteUser(user._id)}
-                    disabled={user.isSuperAdmin}
-                    title={user.isSuperAdmin ? "Cannot delete super admin" : "Delete user"}
+                    disabled={user.role === 'super_admin' || user.role === 'admin' || user.isSuperAdmin}
+                    title={user.role === 'super_admin' || user.role === 'admin' || user.isSuperAdmin ? "Cannot delete admin or super admin" : "Delete user"}
                   >
                     🗑️ Delete
                   </button>
@@ -348,6 +373,7 @@ const UserManagement = () => {
         )}
       </div>
     </div>
+    </>
   );
 };
 

@@ -188,7 +188,7 @@ function App() {
           <Route
             path="/admin-analytics"
             element={
-              <ProtectedRoute requireAdmin={true}>
+              <ProtectedRoute requireSuperAdmin={true}>
                 <AdminAnalytics />
               </ProtectedRoute>
             }

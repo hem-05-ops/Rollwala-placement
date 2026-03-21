@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { User, Mail, Lock, Phone, GraduationCap, BookOpen, Users } from 'lucide-react';
+import { User, Mail, Lock, Phone, GraduationCap, BookOpen, Users, Eye, EyeOff } from 'lucide-react';
 import Header from './Header';
 import Footer from './Footer';
 
 const StudentRegister = () => {
   const [formData, setFormData] = useState({
-    name: '',
+    firstName: '',
+    lastName: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -15,35 +16,60 @@ const StudentRegister = () => {
     course: '',
     branch: '',
     year: '',
+    track: '',
     cgpa: '',
     contact: ''
   });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
 
   const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   const courses = ['BSc.CS', 'MSc.CS', 'MSc.AIML', 'MCA'];
   const branches = ['WD', 'AIML'];
   const years = ['1st', '2nd', '3rd', '4th', '5th'];
+  const tracks = ['.NET', 'Java', 'Data Science', 'Python', 'Web Development', 'Other'];
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'cgpa' ? parseFloat(value) || '' : value
-    }));
+    setFormData(prev => {
+      const updatedValue = name === 'cgpa' ? parseFloat(value) || '' : value;
+      const updated = {
+        ...prev,
+        [name]: updatedValue
+      };
+
+      // If course changes away from MSc.CS, clear branch
+      if (name === 'course' && value !== 'MSc.CS') {
+        updated.branch = '';
+      }
+
+      return updated;
+    });
+    setError('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+    setError('');
+
     if (formData.password !== formData.confirmPassword) {
-      toast.error('Passwords do not match');
+      setError('Passwords do not match');
       return;
     }
 
-    if (formData.cgpa < 0 || formData.cgpa > 10) {
-      toast.error('CGPA must be between 0 and 10');
+    // CGPA validation temporarily disabled
+    // if (formData.cgpa < 0 || formData.cgpa > 10) {
+    //   setError('CGPA must be between 0 and 10');
+    //   return;
+    // }
+
+    // Basic contact number validation: must be exactly 10 digits
+    const contactDigits = String(formData.contact || '').replace(/\D/g, '');
+    if (contactDigits.length !== 10) {
+      setError('Contact number must be exactly 10 digits. Please correct the number.');
       return;
     }
 
@@ -51,51 +77,56 @@ const StudentRegister = () => {
 
     try {
       console.log('Attempting registration with:', formData);
-      
-      // FIXED: Changed from /api/students/register to /api/auth/register
-     const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    name: formData.name,
-    email: formData.email,
-    password: formData.password,
-    confirmPassword: formData.confirmPassword, // Add this line
-    role: 'student',
-    rollNo: formData.rollNo,
-    course: formData.course,
-    branch: formData.branch,
-    year: formData.year,
-    cgpa: formData.cgpa,
-    contact: formData.contact
-  }),
-});
+
+      // Use dedicated student registration endpoint
+      const response = await fetch(`${API_BASE_URL}/api/students/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          password: formData.password,
+          confirmPassword: formData.confirmPassword,
+          rollNo: formData.rollNo,
+          course: formData.course,
+          branch: formData.branch,
+          year: formData.year,
+          track: formData.track || undefined,
+          // cgpa: parseFloat(formData.cgpa), // CGPA temporarily disabled
+          contact: formData.contact
+        }),
+      });
 
       console.log('Response status:', response.status);
 
-      // Check if response is OK before parsing JSON
+      const data = await response.json().catch(() => null);
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('HTTP error details:', errorText);
-        throw new Error(`Registration failed: ${errorText || 'Unknown error'}`);
+        console.error('Registration failed response:', data);
+        let message = data?.error || 'Registration failed. Please try again.';
+        if (data?.error === 'Validation failed' && data?.details?.fieldErrors) {
+          const fieldErrors = data.details.fieldErrors;
+          const firstField = Object.keys(fieldErrors)[0];
+          const firstError = fieldErrors[firstField]?.[0];
+          if (firstError) message = firstError;
+        }
+        setError(message);
+        return;
       }
 
-      const data = await response.json();
       console.log('Registration response:', data);
 
       if (data.user) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        toast.success('Registration successful! Welcome to the placement portal.');
-        navigate('/student-dashboard');
+        toast.success(data.message || 'Registration successful. Your account is pending admin approval.');
+        navigate('/student-login');
       } else {
-        toast.error(data.error || 'Registration failed');
+        setError(data.error || 'Registration failed');
       }
     } catch (error) {
       console.error('Registration error:', error);
-      toast.error(error.message || 'Registration failed. Please try again.');
+      setError(error.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -116,28 +147,51 @@ const StudentRegister = () => {
             </p>
           </div>
 
+          {error && (
+            <div className="rounded-md bg-red-50 border border-red-300 px-4 py-3 text-sm text-red-800 shadow-sm">
+              {error}
+            </div>
+          )}
+
           <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Personal Information */}
               <div className="space-y-4">
                 <h3 className="text-lg font-medium text-gray-900">Personal Information</h3>
                 
-                <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                    Full Name
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <User className="h-5 w-5 text-gray-400" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
+                      First Name
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <User className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <input
+                        id="firstName"
+                        name="firstName"
+                        type="text"
+                        required
+                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                        placeholder="Enter your first name"
+                        value={formData.firstName}
+                        onChange={handleChange}
+                      />
                     </div>
+                  </div>
+                  <div>
+                    <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
+                      Last Name
+                    </label>
                     <input
-                      id="name"
-                      name="name"
+                      id="lastName"
+                      name="lastName"
                       type="text"
                       required
-                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500"
-                      placeholder="Enter your full name"
-                      value={formData.name}
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                      placeholder="Enter your last name"
+                      value={formData.lastName}
                       onChange={handleChange}
                     />
                   </div>
@@ -196,13 +250,24 @@ const StudentRegister = () => {
                     <input
                       id="password"
                       name="password"
-                      type="password"
+                      type={showPassword ? 'text' : 'password'}
                       required
-                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                      className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500"
                       placeholder="Enter your password"
                       value={formData.password}
                       onChange={handleChange}
                     />
+                    <button
+                      type="button"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-5 w-5 text-gray-400" />
+                      ) : (
+                        <Eye className="h-5 w-5 text-gray-400" />
+                      )}
+                    </button>
                   </div>
                 </div>
 
@@ -217,13 +282,24 @@ const StudentRegister = () => {
                     <input
                       id="confirmPassword"
                       name="confirmPassword"
-                      type="password"
+                      type={showConfirmPassword ? 'text' : 'password'}
                       required
-                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                      className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500"
                       placeholder="Confirm your password"
                       value={formData.confirmPassword}
                       onChange={handleChange}
                     />
+                    <button
+                      type="button"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-5 w-5 text-gray-400" />
+                      ) : (
+                        <Eye className="h-5 w-5 text-gray-400" />
+                      )}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -272,29 +348,31 @@ const StudentRegister = () => {
                   </div>
                 </div>
 
-                <div>
-                  <label htmlFor="branch" className="block text-sm font-medium text-gray-700 mb-1">
-                    Branch
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Users className="h-5 w-5 text-gray-400" />
+                {formData.course === 'MSc.CS' && (
+                  <div>
+                    <label htmlFor="branch" className="block text-sm font-medium text-gray-700 mb-1">
+                      Branch
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Users className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <select
+                        id="branch"
+                        name="branch"
+                        required
+                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500"
+                        value={formData.branch}
+                        onChange={handleChange}
+                      >
+                        <option value="">Select your branch</option>
+                        {branches.map(branch => (
+                          <option key={branch} value={branch}>{branch}</option>
+                        ))}
+                      </select>
                     </div>
-                    <select
-                      id="branch"
-                      name="branch"
-                      required
-                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500"
-                      value={formData.branch}
-                      onChange={handleChange}
-                    >
-                      <option value="">Select your branch</option>
-                      {branches.map(branch => (
-                        <option key={branch} value={branch}>{branch}</option>
-                      ))}
-                    </select>
                   </div>
-                </div>
+                )}
 
                 <div>
                   <label htmlFor="year" className="block text-sm font-medium text-gray-700 mb-1">
@@ -315,23 +393,25 @@ const StudentRegister = () => {
                   </select>
                 </div>
 
+                {/* CGPA input temporarily disabled */}
+                {/* ... */}
+
                 <div>
-                  <label htmlFor="cgpa" className="block text-sm font-medium text-gray-700 mb-1">
-                    CGPA
+                  <label htmlFor="track" className="block text-sm font-medium text-gray-700 mb-1">
+                    Technology Track
                   </label>
-                  <input
-                    id="cgpa"
-                    name="cgpa"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="10"
-                    required
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500"
-                    placeholder="Enter your CGPA (0-10)"
-                    value={formData.cgpa}
+                  <select
+                    id="track"
+                    name="track"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    value={formData.track}
                     onChange={handleChange}
-                  />
+                  >
+                    <option value="">Select your track (optional)</option>
+                    {tracks.map(track => (
+                      <option key={track} value={track}>{track}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </div>

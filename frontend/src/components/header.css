@@ -3,10 +3,9 @@
   justify-content: space-between;
   align-items: center;
   background: rgba(10, 10, 10, 0.95);
-  background: rgba(10, 10, 10, 0.95);
   color: var(--text-primary);
-  padding: 0.8rem 1.2rem;
-  padding: 0.8rem 1.2rem;
+  padding: 0 20px;
+  min-height: 64px; /* consistent header height */
   position: sticky;
   top: 0;
   z-index: 1000;
@@ -32,7 +31,7 @@ body > main:first-child {
 }
 
 body.light .pms-header {
-  background: rgba(245, 245, 245, 0.95);
+  background: rgba(245, 245, 245, 0.96);
   border-bottom: 1px solid rgba(128, 0, 0, 0.15);
   box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
   backdrop-filter: none;
@@ -90,6 +89,7 @@ body.light .logo-link:hover {
 body.dark .logo-link {
   background: linear-gradient(90deg, var(--text-primary), #800000);
   -webkit-background-clip: text;
+  background-clip: text; /* standard property for compatibility */
   -webkit-text-fill-color: transparent;
   text-shadow: none; 
   font-weight: 700; 
@@ -103,15 +103,12 @@ body.dark .logo-link:hover {
 .nav-links {
   display: flex;
   gap: 2.5rem;
-  gap: 2.5rem;
   align-items: center;
   flex-wrap: wrap; /* ✅ allow wrapping for narrow widths */
  justify-content: center;
 }
 
 .nav-links a, .nav-links .nav-link {
-  position: relative;
-  color: #6b7280;
   position: relative;
   color: #6b7280;
   text-decoration: none;
@@ -130,8 +127,6 @@ body.dark .logo-link:hover {
 .nav-links a::after, .nav-links .nav-link::after {
   content: '';
   position: absolute;
-  bottom: -4px;
-  left: 0;
   bottom: -4px;
   left: 0;
   width: 0;
@@ -286,7 +281,8 @@ body.dark .login-btn:hover {
 /* Large tablets and small laptops (1024px and down) */
 @media (max-width: 1024px) {
   .pms-header {
-    padding: 0.7rem 1rem;
+    padding: 0 16px;
+    min-height: 60px;
   }
   
   .nav-links {
@@ -305,7 +301,7 @@ body.dark .login-btn:hover {
 /* Tablets (768px and down) */
 @media (max-width: 768px) {
   .pms-header {
-    padding: 0.6rem 0.8rem;
+    padding: 0 12px;
     gap: 1rem;
   }
 
@@ -347,7 +343,8 @@ body.dark .login-btn:hover {
 /* Small tablets and large phones (640px and down) */
 @media (max-width: 640px) {
   .pms-header {
-    padding: 0.5rem 0.6rem;
+    padding: 0 10px;
+    min-height: 56px;
   }
   
   .nav-links {
@@ -404,7 +401,7 @@ body.dark .login-btn:hover {
   
   .pms-header {
     justify-content: center;
-    padding: 0.5rem;
+    padding: 0 8px;
     flex-direction: column;
     gap: 0.8rem;
   }
@@ -441,7 +438,7 @@ body.dark .login-btn:hover {
 /* Very small phones (360px and down) */
 @media (max-width: 360px) {
   .pms-header {
-    padding: 0.4rem;
+    padding: 0 6px;
   }
   .logo{
     display: none;

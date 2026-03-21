@@ -13,9 +13,12 @@ import {
   Eye,
   X,
   MessageSquare,
-  Clock // Add this import
+  Clock,
+  MapPin,
+  IndianRupee
 } from 'lucide-react';
 import StudentCalendar from './StudentCalendar';
+import { getAuthToken, handleUnauthorized } from '../lib/auth';
 
 const StudentDashboard = () => {
   const [student, setStudent] = useState(null);
@@ -27,21 +30,39 @@ const StudentDashboard = () => {
   const [selectedJob, setSelectedJob] = useState(null);
   const [showInterviewForm, setShowInterviewForm] = useState(false);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
+  const [interviewExperiences, setInterviewExperiences] = useState([]);
+  const [loadingExperiences, setLoadingExperiences] = useState(false);
+  const [experienceFilter, setExperienceFilter] = useState({ company: '', role: '' });
   const navigate = useNavigate();
 
   // Add API_BASE_URL constant
-  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-const [profileEditData, setProfileEditData] = useState({
-  cgpa: '',
-  contact: '',
-  skills: [],
-  linkedin: '',
-  github: '',
-  projects: [], // Now a simple array of strings
-  certifications: [],
-  achievements: []
-});
+  // Logo utility function
+  const getCompanyLogoUrl = (logoPath) => {
+    // Default fallback to a known asset served by backend
+    if (!logoPath) return `${API_BASE_URL}/assets/faculties/bg-logo.png`;
+
+    // Already absolute (Cloudinary/external)
+    if (logoPath.startsWith('http')) return logoPath;
+
+    // Any root-relative path like /assets/... or /uploads/...
+    if (logoPath.startsWith('/')) return `${API_BASE_URL}${logoPath}`;
+
+    // Plain filename -> assume it lives under uploads/
+    return `${API_BASE_URL}/uploads/${logoPath}`;
+  };
+
+  const [profileEditData, setProfileEditData] = useState({
+    cgpa: '',
+    contact: '',
+    skills: [],
+    linkedin: '',
+    github: '',
+    projects: [], // Now a simple array of strings
+    certifications: [],
+    achievements: []
+  });
 
   const [interviewFormData, setInterviewFormData] = useState({
     company: '',
@@ -52,10 +73,11 @@ const [profileEditData, setProfileEditData] = useState({
     rounds: [],
     tips: ''
   });
+  const [resumeUploading, setResumeUploading] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const token = getAuthToken();
+    const user = JSON.parse(localStorage.getItem('studentUser') || localStorage.getItem('user') || '{}');
     
     if (!token || user.role !== 'student') {
       navigate('/student-login');
@@ -65,82 +87,203 @@ const [profileEditData, setProfileEditData] = useState({
     fetchStudentData();
   }, [navigate]);
 
-
-  
-const fetchStudentData = async () => {
-  try {
-    const token = localStorage.getItem('token');
-    
-    if (!token) {
-      throw new Error('No authentication token found');
-    }
-    
-    const headers = {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    };
-
-    // Fetch student profile
-    const profileResponse = await fetch(`${API_BASE_URL}/api/students/profile`, { headers });
-    
-    if (profileResponse.status === 401) {
-      const errorData = await profileResponse.json().catch(() => ({}));
-      throw new Error(errorData.error || 'Authentication failed');
-    }
-    
-    if (profileResponse.status === 404) {
-      // Handle missing profile (create one)
-      // ... your existing profile creation code ...
-    } else if (profileResponse.ok) {
-      const profileData = await profileResponse.json();
-      setStudent(profileData);
-      // ... set profile edit data ...
-    }
-
-    // Fetch ALL jobs (not just eligible ones) - Use the same endpoint as Jobs.jsx
-    console.log('Fetching all jobs from:', `${API_BASE_URL}/api/jobs`);
-    const jobsResponse = await fetch(`${API_BASE_URL}/api/jobs`, { 
-      headers: {
-        'Content-Type': 'application/json'
+  const fetchStudentData = async () => {
+    try {
+      const token = getAuthToken();
+      const userFromStorage = JSON.parse(localStorage.getItem('studentUser') || localStorage.getItem('user') || '{}');
+      
+      if (!token) {
+        throw new Error('No authentication token found');
       }
-    });
-    
-    console.log('Jobs response status:', jobsResponse.status);
-    
-    if (jobsResponse.ok) {
-      const jobsData = await jobsResponse.json();
-      console.log('All jobs data received:', jobsData);
-      setEligibleJobs(jobsData);
-    } else {
-      const errorText = await jobsResponse.text();
-      console.error('Jobs fetch error:', errorText);
-    }
+      
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
 
-    // Fetch applications
-    const applicationsResponse = await fetch(`${API_BASE_URL}/api/students/applications`, { headers });
-    if (applicationsResponse.ok) {
-      const applicationsData = await applicationsResponse.json();
-      setApplications(applicationsData);
+      // Fetch student profile
+      const profileResponse = await fetch(`${API_BASE_URL}/api/students/profile`, { headers });
+      
+      if (profileResponse.status === 401) {
+        handleUnauthorized();
+        return;
+      }
+      
+      if (profileResponse.status === 404) {
+        // Auto-create a student profile with whatever we have from registration
+        try {
+          const createPayload = {
+            rollNo: userFromStorage.rollNo || undefined,
+            course: userFromStorage.course || undefined,
+            branch: userFromStorage.branch || undefined,
+            year: userFromStorage.year || undefined,
+            cgpa: typeof userFromStorage.cgpa === 'number' ? userFromStorage.cgpa : undefined,
+            contact: userFromStorage.contact || undefined
+          };
+          await fetch(`${API_BASE_URL}/api/students/create-profile`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(createPayload)
+          });
+          const retry = await fetch(`${API_BASE_URL}/api/students/profile`, { headers });
+          if (retry.ok) {
+            const retryData = await retry.json();
+            // Merge registered user for display
+            setStudent({
+              ...retryData,
+              user: { ...(retryData.user || {}), ...(userFromStorage || {}) }
+            });
+          } else {
+            // Fallback to registered user details only
+            setStudent({
+              user: userFromStorage || {},
+              rollNo: userFromStorage.rollNo || '—',
+              course: userFromStorage.course || '—',
+              branch: userFromStorage.branch || '—',
+              year: userFromStorage.year || '—',
+              cgpa: userFromStorage.cgpa ?? '—',
+              contact: userFromStorage.contact || '—',
+              skills: [],
+              projects: [],
+              certifications: [],
+              achievements: []
+            });
+          }
+        } catch (e) {
+          console.warn('Auto create-profile failed:', e);
+          // Fallback to registered user details only
+          setStudent({
+            user: userFromStorage || {},
+            rollNo: userFromStorage.rollNo || '—',
+            course: userFromStorage.course || '—',
+            branch: userFromStorage.branch || '—',
+            year: userFromStorage.year || '—',
+            cgpa: userFromStorage.cgpa ?? '—',
+            contact: userFromStorage.contact || '—',
+            skills: [],
+            projects: [],
+            certifications: [],
+            achievements: []
+          });
+        }
+      } else if (profileResponse.ok) {
+        const profileData = await profileResponse.json();
+        // Merge registered user for display
+        setStudent({
+          ...profileData,
+          user: { ...(profileData.user || {}), ...(userFromStorage || {}) }
+        });
+        // Initialize edit form from profile
+        setProfileEditData({
+          cgpa: profileData.cgpa ?? '',
+          contact: profileData.contact ?? '',
+          skills: Array.isArray(profileData.skills) ? profileData.skills : [],
+          linkedin: profileData.linkedin || '',
+          github: profileData.github || '',
+          projects: Array.isArray(profileData.projects) ? profileData.projects : [],
+          certifications: Array.isArray(profileData.certifications) ? profileData.certifications : [],
+          achievements: Array.isArray(profileData.achievements) ? profileData.achievements : []
+        });
+      }
+
+      // Fetch ALL jobs (not just eligible ones) - Use the same endpoint as Jobs.jsx
+      console.log('Fetching all jobs from:', `${API_BASE_URL}/api/jobs`);
+      const jobsResponse = await fetch(`${API_BASE_URL}/api/jobs`, { 
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log('Jobs response status:', jobsResponse.status);
+      
+      if (jobsResponse.ok) {
+        const jobsData = await jobsResponse.json();
+        console.log('All jobs data received:', jobsData);
+        setEligibleJobs(jobsData);
+      } else {
+        const errorText = await jobsResponse.text();
+        console.error('Jobs fetch error:', errorText);
+      }
+
+      // Fetch applications
+      const applicationsResponse = await fetch(`${API_BASE_URL}/api/students/applications`, { headers });
+      if (applicationsResponse.status === 401) {
+        handleUnauthorized();
+        return;
+      }
+      if (applicationsResponse.ok) {
+        const applicationsData = await applicationsResponse.json();
+        setApplications(applicationsData);
+      }
+      
+    } catch (error) {
+      console.error('Error fetching student data:', error);
+      toast.error('Failed to load student data');
+    } finally {
+      setLoading(false);
     }
-    
-  } catch (error) {
-    console.error('Error fetching student data:', error);
-    // ... error handling ...
-  } finally {
-    setLoading(false);
-  }
-};
-  // ... rest of your component code remains the same
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('studentUser');
     toast.success('Logged out successfully');
     navigate('/');
   };
 
+  const handleResumeUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+      toast.error('Only PDF files are allowed for resume.');
+      return;
+    }
+
+    try {
+      setResumeUploading(true);
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('resume', file);
+
+      const response = await fetch(`${API_BASE_URL}/api/students/resume`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      const data = await response.json().catch(() => null);
+      if (response.ok) {
+        toast.success('Resume uploaded successfully');
+        if (data?.student) {
+          setStudent(prev => ({ ...(prev || {}), ...data.student }));
+        } else if (data?.resume) {
+          setStudent(prev => prev ? { ...prev, resume: data.resume } : prev);
+        }
+      } else {
+        toast.error(data?.error || 'Failed to upload resume');
+      }
+    } catch (err) {
+      console.error('Resume upload error:', err);
+      toast.error('Failed to upload resume');
+    } finally {
+      setResumeUploading(false);
+      // Reset the input so the same file can be re-selected if needed
+      e.target.value = '';
+    }
+  };
+
   const handleApplyForJob = async (jobId) => {
     try {
+      // Frontend guard: only 3rd and 5th year students can apply
+      if (!['3rd', '5th'].includes(student?.year)) {
+        toast.error('You are not eligible to apply for jobs. Only 3rd and 5th year students can apply.');
+        return;
+      }
+
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_BASE_URL}/api/students/apply`, {
         method: 'POST',
@@ -166,43 +309,66 @@ const fetchStudentData = async () => {
     }
   };
 
-  
   const handleProfileUpdate = async () => {
-  try {
-    const token = localStorage.getItem('token');
-    const response = await fetch(`${API_BASE_URL}/api/students/profile`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(profileEditData)
-    });
-
-    // Get response as text first to handle non-JSON responses
-    const responseText = await response.text();
-    let data;
-    
     try {
-      data = JSON.parse(responseText);
-    } catch (e) {
-      console.error('Failed to parse response as JSON:', responseText);
-      throw new Error('Server returned invalid response');
-    }
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/students/profile`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(profileEditData)
+      });
 
-    if (response.ok) {
-      toast.success('Profile updated successfully!');
-      setShowProfileEdit(false);
-      fetchStudentData();
-    } else {
-      console.error('Profile update failed:', data);
-      toast.error(data.error || data.message || 'Update failed');
+      // Get response as text first to handle non-JSON responses
+      const responseText = await response.text();
+      let data;
+      
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        console.error('Failed to parse response as JSON:', responseText);
+        throw new Error('Server returned invalid response');
+      }
+
+      if (response.ok) {
+        toast.success('Profile updated successfully!');
+        setShowProfileEdit(false);
+        fetchStudentData();
+      } else {
+        console.error('Profile update failed:', data);
+        toast.error(data.error || data.message || 'Update failed');
+      }
+    } catch (error) {
+      console.error('Update error:', error);
+      toast.error(error.message || 'Update failed. Please try again.');
     }
-  } catch (error) {
-    console.error('Update error:', error);
-    toast.error(error.message || 'Update failed. Please try again.');
-  }
-};
+  };
+
+  const fetchInterviewExperiences = async () => {
+    try {
+      setLoadingExperiences(true);
+      const response = await fetch(`${API_BASE_URL}/api/interview-experiences/approved`);
+      if (response.ok) {
+        const data = await response.json();
+        setInterviewExperiences(data || []);
+      } else {
+        console.error('Failed to fetch experiences');
+      }
+    } catch (error) {
+      console.error('Error fetching experiences:', error);
+    } finally {
+      setLoadingExperiences(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'experiences') {
+      fetchInterviewExperiences();
+    }
+  }, [activeTab]);
+
   const handleInterviewSubmission = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -220,7 +386,7 @@ const fetchStudentData = async () => {
 
       const data = await response.json();
       if (response.ok) {
-        toast.success('Interview experience submitted successfully!');
+        toast.success('Interview experience submitted successfully! It will be reviewed by admin.');
         setShowInterviewForm(false);
         setInterviewFormData({
           company: '',
@@ -231,6 +397,10 @@ const fetchStudentData = async () => {
           rounds: [],
           tips: ''
         });
+        // Refresh experiences list
+        if (activeTab === 'experiences') {
+          fetchInterviewExperiences();
+        }
       } else {
         toast.error(data.error || 'Submission failed');
       }
@@ -261,8 +431,6 @@ const fetchStudentData = async () => {
     }
   };
 
-  
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -273,8 +441,7 @@ const fetchStudentData = async () => {
               <h1 className="text-2xl font-bold text-gray-900">Student Portal</h1>
               {student && (
                 <div className="ml-4">
-                  <p className="text-sm text-gray-600">Welcome back, {student.user?.name}</p>
-                  <p className="text-xs text-gray-500">{student.rollNo} • {student.course} • {student.branch}</p>
+                  <p className="text-sm text-gray-600">Welcome back, {(student.user?.firstName || '') + (student.user?.lastName ? ' ' + student.user.lastName : '')}</p>
                 </div>
               )}
             </div>
@@ -335,13 +502,44 @@ const fetchStudentData = async () => {
                   <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <User className="h-10 w-10 text-blue-600" />
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900">{student.user?.name}</h3>
+                  <h3 className="text-xl font-semibold text-gray-900">{(student.user?.firstName || '') + (student.user?.lastName ? ' ' + student.user.lastName : '')}</h3>
                   <p className="text-gray-600">{student.rollNo}</p>
                   <p className="text-sm text-gray-500">{student.course} • {student.branch} • {student.year}</p>
                   <div className="mt-4 flex justify-center">
                     <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
                       CGPA: {student.cgpa}
                     </span>
+                  </div>
+                </div>
+
+                {/* Resume Upload & View */}
+                <div className="bg-white p-6 rounded-lg shadow">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Resume</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Upload your latest resume in PDF format so that the placement team and companies can review it.
+                  </p>
+                  <div className="flex items-center space-x-4">
+                    <label className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer">
+                      <FileText className="h-4 w-4 mr-2" />
+                      <span>{resumeUploading ? 'Uploading...' : 'Upload PDF Resume'}</span>
+                      <input
+                        type="file"
+                        accept="application/pdf"
+                        className="hidden"
+                        onChange={handleResumeUpload}
+                        disabled={resumeUploading}
+                      />
+                    </label>
+                    {student?.resume && (
+                      <a
+                        href={`${API_BASE_URL}${student.resume}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 underline"
+                      >
+                        <Eye className="h-4 w-4 mr-1" /> View Resume
+                      </a>
+                    )}
                   </div>
                 </div>
                 
@@ -431,7 +629,7 @@ const fetchStudentData = async () => {
               {/* Quick Actions */}
               <div className="bg-white p-6 rounded-lg shadow">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <button
                     onClick={() => setActiveTab('jobs')}
                     className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
@@ -445,6 +643,13 @@ const fetchStudentData = async () => {
                   >
                     <Plus className="h-5 w-5 text-green-600 mr-3" />
                     <span className="text-sm font-medium">Share Experience</span>
+                  </button>
+                  <button
+                    onClick={() => navigate('/practice-courses')}
+                    className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+                  >
+                    <TrendingUp className="h-5 w-5 text-purple-600 mr-3" />
+                    <span className="text-sm font-medium">Practice</span>
                   </button>
                 </div>
               </div>
@@ -463,6 +668,7 @@ const fetchStudentData = async () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {eligibleJobs.map((job) => {
                 const hasApplied = applications.some(app => app.job?._id === job._id);
+                const isEligibleYear = ['3rd', '5th'].includes(student?.year);
                 return (
                   <div key={job._id} className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow">
                     <div className="flex items-start justify-between mb-4">
@@ -471,15 +677,46 @@ const fetchStudentData = async () => {
                         <p className="text-sm text-gray-600">{job.companyName}</p>
                       </div>
                       {job.companyLogo && (
-                        <img src={job.companyLogo} alt={job.companyName} className="h-10 w-10 rounded" />
+                        <img 
+                          src={getCompanyLogoUrl(job.companyLogo)} 
+                          alt={job.companyName} 
+                          className="h-10 w-10 rounded object-contain bg-white border border-gray-200 p-1"
+                          onError={(e) => {
+                            console.error('Failed to load logo:', getCompanyLogoUrl(job.companyLogo));
+                            e.target.src = `${API_BASE_URL}/assets/faculties/bg-logo.png`;
+                            e.target.onerror = null;
+                          }}
+                        />
                       )}
                     </div>
                     
                     <div className="space-y-2 mb-4">
-                      <p className="text-sm text-gray-600">📍 {job.location}</p>
-                      <p className="text-sm text-gray-600">💰 {job.salaryPackage}</p>
-                      <p className="text-sm text-gray-600">📅 Apply by: {new Date(job.applicationDeadline).toLocaleDateString()}</p>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <MapPin className="w-4 h-4 mr-2 text-gray-400" />
+                        <span>{job.location}</span>
+                      </div>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <IndianRupee className="w-4 h-4 mr-2 text-gray-400" />
+                        <span>{job.salaryPackage}</span>
+                      </div>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Calendar className="w-4 h-4 mr-2 text-gray-400" />
+                        <span>Apply by: {new Date(job.applicationDeadline).toLocaleDateString()}</span>
+                      </div>
                     </div>
+
+                    {job.jobDescriptionFile && (
+                      <div className="mb-3">
+                        <a
+                          href={`${API_BASE_URL}${job.jobDescriptionFile}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center text-xs text-blue-600 hover:text-blue-800 underline"
+                        >
+                          View Job Description (JD)
+                        </a>
+                      </div>
+                    )}
                     
                     {hasApplied ? (
                       <button
@@ -488,6 +725,17 @@ const fetchStudentData = async () => {
                       >
                         Already Applied
                       </button>
+                    ) : !isEligibleYear ? (
+                      <button
+                        disabled
+                        className="w-full py-2 px-4 bg-gray-100 text-gray-400 rounded-md text-sm font-medium cursor-not-allowed"
+                      >
+                        Not eligible to apply (Year)
+                      </button>
+                    ) : (job.minCgpa > 0 && student?.cgpa < job.minCgpa) ? (
+                      <div className="w-full py-2 px-4 bg-red-100 text-red-700 border border-red-300 rounded-md text-sm font-bold text-center">
+                        You are not eligible to apply
+                      </div>
                     ) : (
                       <button
                         onClick={() => {
@@ -569,12 +817,97 @@ const fetchStudentData = async () => {
                 Share Experience
               </button>
             </div>
-            
-            <div className="bg-white p-6 rounded-lg shadow text-center text-gray-500">
-              <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-              <p>View and share interview experiences with your peers.</p>
-              <p className="text-sm">Help others prepare by sharing your interview journey!</p>
+
+            {/* Filters */}
+            <div className="bg-white p-4 rounded-lg shadow">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input
+                  type="text"
+                  placeholder="Filter by Company"
+                  value={experienceFilter.company}
+                  onChange={(e) => setExperienceFilter({ ...experienceFilter, company: e.target.value })}
+                  className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <input
+                  type="text"
+                  placeholder="Filter by Role"
+                  value={experienceFilter.role}
+                  onChange={(e) => setExperienceFilter({ ...experienceFilter, role: e.target.value })}
+                  className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
             </div>
+
+            {/* Experiences List */}
+            {loadingExperiences ? (
+              <div className="bg-white p-6 rounded-lg shadow text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-4 text-gray-500">Loading experiences...</p>
+              </div>
+            ) : interviewExperiences.filter(exp => 
+              (!experienceFilter.company || exp.company?.toLowerCase().includes(experienceFilter.company.toLowerCase())) &&
+              (!experienceFilter.role || exp.role?.toLowerCase().includes(experienceFilter.role.toLowerCase()))
+            ).length === 0 ? (
+              <div className="bg-white p-6 rounded-lg shadow text-center text-gray-500">
+                <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <p>No interview experiences found.</p>
+                <p className="text-sm mt-2">Be the first to share your interview experience!</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {interviewExperiences
+                  .filter(exp => 
+                    (!experienceFilter.company || exp.company?.toLowerCase().includes(experienceFilter.company.toLowerCase())) &&
+                    (!experienceFilter.role || exp.role?.toLowerCase().includes(experienceFilter.role.toLowerCase()))
+                  )
+                  .map((exp) => (
+                    <div key={exp._id} className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900">{exp.company}</h3>
+                          <p className="text-sm text-gray-600">{exp.role}</p>
+                        </div>
+                        {exp.difficulty && (
+                          <span className={`px-2 py-1 text-xs rounded ${
+                            exp.difficulty === 'Easy' ? 'bg-green-100 text-green-800' :
+                            exp.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {exp.difficulty}
+                          </span>
+                        )}
+                      </div>
+                      
+                      {exp.submittedBy && (
+                        <p className="text-xs text-gray-500 mb-2">By: {exp.submittedBy}</p>
+                      )}
+                      
+                      {exp.package && (
+                        <p className="text-sm font-medium text-gray-700 mb-2">Package: {exp.package}</p>
+                      )}
+                      
+                      <p className="text-sm text-gray-600 mb-4 line-clamp-3">
+                        {exp.experience?.substring(0, 150)}
+                        {exp.experience?.length > 150 ? '...' : ''}
+                      </p>
+                      
+                      {exp.tips && (
+                        <div className="mb-3 p-2 bg-green-50 rounded text-xs">
+                          <strong>Tip:</strong> {exp.tips.substring(0, 100)}
+                          {exp.tips.length > 100 ? '...' : ''}
+                        </div>
+                      )}
+                      
+                      <button
+                        onClick={() => navigate(`/interview-experiences`, { state: { selectedExperience: exp } })}
+                        className="w-full px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700"
+                      >
+                        Read More
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -584,7 +917,20 @@ const fetchStudentData = async () => {
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium">Apply for {selectedJob.position}</h3>
+              <div className="flex items-center">
+                {selectedJob.companyLogo && (
+                  <img 
+                    src={getCompanyLogoUrl(selectedJob.companyLogo)} 
+                    alt={selectedJob.companyName} 
+                    className="h-8 w-8 rounded mr-3 object-contain bg-white border border-gray-200 p-1"
+                    onError={(e) => {
+                      e.target.src = `${API_BASE_URL}/assets/faculties/bg-logo.png`;
+                      e.target.onerror = null;
+                    }}
+                  />
+                )}
+                <h3 className="text-lg font-medium">Apply for {selectedJob.position}</h3>
+              </div>
               <button
                 onClick={() => setShowApplicationForm(false)}
                 className="text-gray-400 hover:text-gray-600"

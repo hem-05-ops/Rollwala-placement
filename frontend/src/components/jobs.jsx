@@ -1,29 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, MapPin, DollarSign, Clock, Building, User, Award } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, Building, User, Award, IndianRupee } from 'lucide-react';
 import './jobs.css';
 import { API_ENDPOINTS } from '../config/api';
 
-// Utility function for logo URL handling
-// Utility function for logo URL handling - Use static assets
-// Utility function for logo URL handling - SIMPLIFIED
-// Utility function for logo URL handling - FIXED
+// Utility: build absolute logo URL against backend base
 const getCompanyLogoUrl = (logoPath) => {
-  if (!logoPath) return `${API_ENDPOINTS.UPLOADS}/default-logo.png`;
-  
-  // If it's already a full URL (Cloudinary or external)
+  // Default fallback to a known asset served by backend
+  if (!logoPath) return `${API_ENDPOINTS.UPLOADS}/assets/faculties/bg-logo.png`;
+
+  // Already absolute (Cloudinary/external)
   if (logoPath.startsWith('http')) return logoPath;
-  
-  // If it's a path starting with /assets/ (faculty images)
-  if (logoPath.startsWith('/assets/')) {
-    return `${API_ENDPOINTS.UPLOADS}${logoPath}`;
-  }
-  
-  // If it's a path starting with /uploads/ (uploaded company logos)
-  if (logoPath.startsWith('/uploads/')) {
-    return `${API_ENDPOINTS.UPLOADS}${logoPath}`;
-  }
-  
-  // If it's just a filename, assume it's in assets/faculties folder
+
+  // Any root-relative path like /assets/... or /uploads/...
+  if (logoPath.startsWith('/')) return `${API_ENDPOINTS.UPLOADS}${logoPath}`;
+
+  // Plain filename -> assume it lives under assets/faculties
   return `${API_ENDPOINTS.UPLOADS}/assets/faculties/${logoPath}`;
 };
 // JobCard Component
@@ -46,7 +37,7 @@ const JobCard = ({ job, onClick }) => {
             className="company-logo"
             onError={(e) => {
               console.error('Failed to load logo:', logoUrl);
-              e.target.src = '/default-logo.png'; // Fallback if image fails to load
+              e.target.src = `${API_ENDPOINTS.UPLOADS}/assets/faculties/bg-logo.png`; // Backend-served fallback
             }}
           />
           <div className="company-name">{job.companyName}</div>
@@ -66,8 +57,8 @@ const JobCard = ({ job, onClick }) => {
             </div>
           </div>
           <div className="job-info-row">
-            <div className="job-salary">
-              <DollarSign className="detail-icon" size={16} style={{display: 'inline', marginRight: '4px'}} />
+            <div className="job-salary" style={{ display: 'flex', alignItems: 'center' }}>
+              <IndianRupee className="detail-icon" size={16} style={{ marginRight: '4px' }} />
               {job.salaryPackage}
             </div>
           </div>
@@ -108,6 +99,11 @@ const JobCard = ({ job, onClick }) => {
                     </span>
                   </div>
                 )}
+                {job.minCgpa > 0 && (
+                  <span className="job-eligible-courses" style={{ color: '#166534', backgroundColor: '#f0fdf4', padding: '2px 6px', borderRadius: '4px', border: '1px solid #bbf7d0' }}>
+                    Min CGPA: {job.minCgpa}
+                  </span>
+                )}
               </>
             ) : (
               <div className="eligibility-row">
@@ -142,6 +138,53 @@ const JobCard = ({ job, onClick }) => {
 
 // JobDetails Component
 const JobDetails = ({ job, onBack, onApply }) => {
+  const [eligibility, setEligibility] = useState(null);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    const fetchEligibility = async () => {
+      try {
+        const token = localStorage.getItem('authToken');
+        let query = '';
+        if (token) {
+          // If the student is authenticated, we assume they have a studentId in localStorage
+          // or the backend will inspect their token. Since the backend checks `studentId` query param
+          // or uses the `req.user`, we'll pass the studentId from localStorage if we have it.
+          const userStr = localStorage.getItem('user');
+          if (userStr) {
+            try {
+              const u = JSON.parse(userStr);
+              if (u.studentId) query = `?studentId=${u.studentId}`;
+              else if (u.id) query = `?studentId=${u.id}`;
+            } catch (e) {}
+          }
+        }
+        
+        // We call the new endpoint (even without token it will return abstract job criteria)
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const res = await fetch(`${API_ENDPOINTS.JOBS.replace('/jobs', '/applications')}/eligibility/${job._id}${query}`, {
+          headers
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          setEligibility(data);
+        } else {
+          setEligibility(null);
+        }
+      } catch (err) {
+        console.error('Error checking eligibility', err);
+        setEligibility(null);
+      } finally {
+        setChecking(false);
+      }
+    };
+
+    if (job?._id) fetchEligibility();
+  }, [job]);
+
   if (!job) return null;
   
   // Use the utility function for logo URL
@@ -161,15 +204,24 @@ const JobDetails = ({ job, onBack, onApply }) => {
           className="details-logo"
           onError={(e) => {
             console.error('Failed to load logo:', logoUrl);
-            e.target.src = '/default-logo.png'; // Fallback if image fails to load
+            e.target.src = `${API_ENDPOINTS.UPLOADS}/assets/faculties/bg-logo.png`; // Backend-served fallback
           }}
         />
         <div className="header-content">
           <h1>{job.position}</h1>
-          <h2>{job.companyName}</h2>          <div className="job-meta">
-            <span className="meta-item location">📍 {job.location}</span>
-            <span className="meta-item salary">Rs. {job.salaryPackage}</span>
-            <span className="meta-item type">🕒 {job.jobType}</span>
+          <h2>{job.companyName}</h2>          <div className="job-meta" style={{ display: 'flex', gap: '20px', alignItems: 'center', marginTop: '10px' }}>
+            <span className="meta-item location" style={{ display: 'flex', alignItems: 'center' }}>
+              <MapPin size={18} style={{ marginRight: '6px' }} />
+              {job.location}
+            </span>
+            <span className="meta-item salary" style={{ display: 'flex', alignItems: 'center' }}>
+              <IndianRupee size={18} style={{ marginRight: '6px' }} />
+              {job.salaryPackage}
+            </span>
+            <span className="meta-item type" style={{ display: 'flex', alignItems: 'center' }}>
+              <Clock size={18} style={{ marginRight: '6px' }} />
+              {job.jobType}
+            </span>
           </div>
         </div>
       </div><div className="job-details-content">        <div className="job-section">
@@ -204,6 +256,17 @@ const JobDetails = ({ job, onBack, onApply }) => {
                   {(Array.isArray(job.eligibleBranches) ? job.eligibleBranches : [job.eligibleBranches]).map((branch, index) => (
                     <span key={index} className="eligibility-tag branch-tag">{branch}</span>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {job.minCgpa > 0 && (
+              <div className="eligibility-item" style={{ width: '100%', gridColumn: 'span 2' }}>
+                <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', padding: '10px 14px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px', width: 'fit-content' }}>
+                  <Award className="detail-icon" size={18} style={{ color: '#16a34a' }} />
+                  <span style={{ color: '#166534', fontWeight: '600' }}>
+                    Minimum CGPA Required: {job.minCgpa}
+                  </span>
                 </div>
               </div>
             )}
@@ -248,20 +311,73 @@ const JobDetails = ({ job, onBack, onApply }) => {
             )}
           </ul>
         </div>       
-         {/* {job.companyWebsite ? (
-          <a 
-            href={job.companyWebsite} 
-            target="_blank" 
-            rel="noopener noreferrer" 
-            className="apply-button"
-          >
-            Apply Now
-          </a>
-        ) : (
-          <button className="apply-button" onClick={() => onApply && onApply(job)}>
-            Apply Now
-          </button>
-        )} */}
+
+        <div className="job-section" style={{ marginTop: '30px', borderTop: '2px solid #e5e7eb', paddingTop: '20px' }}>
+          <h3>Application Status</h3>
+          {checking ? (
+             <div style={{ color: '#6b7280', fontStyle: 'italic' }}>Checking eligibility...</div>
+          ) : eligibility?.notLoggedIn ? (
+             <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fde68a', padding: '15px', borderRadius: '8px', color: '#92400e' }}>
+               <p style={{ margin: 0, fontWeight: 'bold' }}>Please log in to apply.</p>
+               <p style={{ margin: '5px 0 0 0', fontSize: '0.9em' }}>You must be a registered student to check eligibility and submit an application.</p>
+             </div>
+          ) : (
+            <div style={{ backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', padding: '20px', borderRadius: '8px' }}>
+              <h4 style={{ margin: '0 0 15px 0', color: '#111827' }}>Eligibility Check</h4>
+              
+              {/* Display reasons if ineligible */}
+              {eligibility?.eligible === false && eligibility?.reasons?.length > 0 && (
+                <div style={{ marginBottom: '20px' }}>
+                  <p style={{ color: '#b91c1c', fontWeight: 'bold', margin: '0 0 10px 0' }}>❌ You do not meet all criteria:</p>
+                  <ul style={{ margin: 0, paddingLeft: '20px', color: '#374151' }}>
+                    {eligibility.reasons.map((r, i) => (
+                      <li key={i} style={{ marginBottom: '6px' }}>
+                        <strong>{r.criterion}:</strong> Required {r.required}, but your profile has {r.yours}.
+                      </li>
+                    ))}
+                  </ul>
+                  <p style={{ margin: '10px 0 0 0', fontSize: '0.85em', color: '#6b7280' }}>
+                    Update your profile if this information is incorrect.
+                  </p>
+                </div>
+              )}
+
+              {/* Display success if eligible */}
+              {eligibility?.eligible === true && (
+                <div style={{ marginBottom: '20px', color: '#166534', backgroundColor: '#dcfce3', padding: '10px 15px', borderRadius: '6px', border: '1px solid #bbf7d0' }}>
+                  <p style={{ margin: 0, fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    ✅ You are eligible for this position!
+                  </p>
+                </div>
+              )}
+
+              <div style={{ marginTop: '20px' }}>
+                {job.companyWebsite ? (
+                  <a 
+                    href={job.companyWebsite} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="apply-button"
+                    style={{ textDecoration: 'none', display: 'inline-block' }}
+                  >
+                    Apply on Company Website
+                  </a>
+                ) : eligibility?.eligible === false ? (
+                  <div style={{ color: '#dc2626', fontWeight: 'bold', fontSize: '1.1em', marginTop: '10px', padding: '12px', backgroundColor: '#fee2e2', border: '1px solid #f87171', borderRadius: '6px', textAlign: 'center' }}>
+                    You are not eligible to apply
+                  </div>
+                ) : (
+                  <button 
+                    className="apply-button" 
+                    onClick={() => onApply && onApply(job)}
+                  >
+                    Apply Now
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -304,8 +420,50 @@ const Jobs = () => {
     setSelectedJob(null);
   };
 
-  const handleApply = (job) => {
-    alert(`Applied for ${job.position} at ${job.companyName}`);
+  const handleApply = async (job) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const userStr = localStorage.getItem('user');
+      
+      if (!token || !userStr) {
+        alert('Please log in to apply.');
+        return;
+      }
+
+      let parsedUser;
+      try {
+        parsedUser = JSON.parse(userStr);
+      } catch (e) {
+        alert('Invalid user session. Please log in again.');
+        return;
+      }
+
+      const studentId = parsedUser.studentId || parsedUser.id;
+
+      const response = await fetch(`${API_ENDPOINTS.JOBS.replace('/jobs', '/applications')}/submit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          jobId: job._id,
+          studentId: studentId
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(`Successfully applied for ${job.position} at ${job.companyName}!`);
+        // We could also re-trigger eligibility check here so the UI updates to "Already Applied"
+      } else {
+        alert(`Failed to apply: ${data.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      console.error('Apply error:', err);
+      alert('An error occurred while submitting your application.');
+    }
   };
 
   if (loading) {

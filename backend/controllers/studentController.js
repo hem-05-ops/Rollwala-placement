@@ -13,28 +13,56 @@ if (!JWT_SECRET) {
 }
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
+// Allowed track values (must match Student model enum)
+const VALID_TRACKS = ['.NET', 'Java', 'Data Science', 'Python', 'Web Development', 'Other'];
+
 // Student registration schema
 const studentRegisterSchema = z.object({
-  name: z.string().min(2).max(100),
+  firstName: z.string().min(1).max(100),
+  lastName: z.string().min(1).max(100),
   email: z.string().email().toLowerCase().trim(),
   password: z.string().min(8).max(128),
   confirmPassword: z.string().min(8).max(128),
   rollNo: z.string().min(1).max(20),
   course: z.enum(['BSc.CS', 'MSc.CS', 'MSc.AIML', 'MCA']),
-  branch: z.enum(['WD', 'AIML']),
+  // Track (branch) is required only for MSc.CS, optional otherwise
+  branch: z.enum(['WD', 'AIML']).optional(),
   year: z.enum(['1st', '2nd', '3rd', '4th', '5th']),
-  cgpa: z.number().min(0).max(10),
+  // Technology track (e.g. Java, .NET, Data Science)
+  track: z.enum(['.NET', 'Java', 'Data Science', 'Python', 'Web Development', 'Other']).optional(),
+  // CGPA made optional for now
+  cgpa: z.number().min(0).max(10).optional(),
   contact: z.string().min(10).max(15)
-}).refine((data) => data.password === data.confirmPassword, {
-  message: 'Passwords do not match',
-  path: ['confirmPassword']
+}).superRefine((data, ctx) => {
+  if (data.password !== data.confirmPassword) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Passwords do not match',
+      path: ['confirmPassword']
+    });
+  }
+
+  // If course is MSc.CS then branch is required
+  if (data.course === 'MSc.CS' && !data.branch) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Branch is required for MSc.CS students',
+      path: ['branch']
+    });
+  }
 });
 
 // Student registration
 // Student registration
 exports.registerStudent = async (req, res) => {
   try {
-    const payload = studentRegisterSchema.parse(req.body);
+    // Normalize branch: empty string -> undefined so non-MSc.CS students don't fail enum validation
+    const cleanedBody = {
+      ...req.body,
+      branch: req.body.branch || undefined
+    };
+
+    const payload = studentRegisterSchema.parse(cleanedBody);
 
     // Check if user already exists
     const existingUser = await User.findOne({ email: payload.email });
@@ -51,9 +79,12 @@ exports.registerStudent = async (req, res) => {
     const saltRounds = 10;
     const passwordHash = await bcrypt.hash(payload.password, saltRounds);
 
-    // Create user
+    // Create user (User schema requires 'name')
+    const fullName = `${payload.firstName} ${payload.lastName}`.trim();
     const user = await User.create({
-      name: payload.name,
+      name: fullName,
+      firstName: payload.firstName,
+      lastName: payload.lastName,
       email: payload.email,
       passwordHash,
       role: 'student'
@@ -62,34 +93,30 @@ exports.registerStudent = async (req, res) => {
     // Create student profile - make sure to use user._id
     const student = await Student.create({
       user: user._id, // This is the crucial link
+      firstName: payload.firstName,
+      lastName: payload.lastName,
       rollNo: payload.rollNo,
       course: payload.course,
-      branch: payload.branch,
+      branch: payload.branch || undefined,
+      track: payload.track || undefined,
       year: payload.year,
-      cgpa: payload.cgpa,
+      cgpa: payload.cgpa ?? 0,
       contact: payload.contact
     });
 
     console.log('Created student profile:', student);
 
-    const token = jwt.sign({ 
-      id: user._id, 
-      email: user.email, 
-      role: user.role 
-    }, JWT_SECRET, {
-      expiresIn: JWT_EXPIRES_IN
-    });
-
     return res.status(201).json({
-      message: 'Student registered successfully',
-      token,
-      user: { 
-        id: user._id, 
-        name: user.name, 
-        email: user.email, 
-        role: user.role,
-        student: student
-      }
+      message: 'Student registered successfully. Your account is pending approval by the administrator.',
+      user: {
+        id: user._id,
+        name: fullName,
+        firstName: payload.firstName,
+        lastName: payload.lastName,
+        email: user.email,
+        role: user.role
+      },
+      student
     });
   } catch (err) {
     console.error('Registration error:', err);
@@ -134,6 +161,8 @@ exports.createStudentProfile = async (req, res) => {
     // Create new student profile
     const student = await Student.create({
       user: req.user.id,
+      firstName: user.firstName || 'Student',
+      lastName: user.lastName || 'User',
       rollNo: rollNo || `TEMP-${Date.now()}`,
       course: course || 'BSc.CS',
       branch: branch || 'WD',
@@ -147,7 +176,7 @@ exports.createStudentProfile = async (req, res) => {
     });
     
     const populatedStudent = await Student.findById(student._id)
-      .populate('user', 'name email role');
+      .populate('user', 'firstName lastName email role');
     
     console.log('Created student profile:', populatedStudent);
     
@@ -169,7 +198,7 @@ exports.getStudentProfile = async (req, res) => {
     console.log('Fetching profile for user ID:', req.user.id);
     
     const student = await Student.findOne({ user: req.user.id })
-      .populate('user', 'name email role');
+      .populate('user', 'firstName lastName email role');
     
     if (!student) {
       console.log('No student profile found for user:', req.user.id);
@@ -232,7 +261,7 @@ exports.updateStudentProfile = async (req, res) => {
     }
 
     // Get the updated student
-    const student = await Student.findOne({ user: req.user.id }).populate('user', 'name email');
+    const student = await Student.findOne({ user: req.user.id }).populate('user', 'firstName lastName email');
     
     console.log('Profile updated successfully:', student);
     res.json({ message: 'Profile updated successfully', student });
@@ -245,6 +274,35 @@ exports.updateStudentProfile = async (req, res) => {
     res.status(500).json({ error: 'Internal server error', message: error.message });
   }
 };
+
+// Upload resume (PDF) and attach to student profile
+exports.uploadResume = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No resume file uploaded' });
+    }
+
+    // Normalize path with leading slash so frontend can build URL as `${API_BASE_URL}${resume}`
+    const resumePath = `/uploads/resumes/${req.file.filename}`;
+
+    await Student.updateOne(
+      { user: req.user.id },
+      { $set: { resume: resumePath } },
+      { runValidators: false }
+    );
+
+    const student = await Student.findOne({ user: req.user.id }).populate('user', 'firstName lastName email');
+
+    return res.json({
+      message: 'Resume uploaded successfully',
+      resume: resumePath,
+      student
+    });
+  } catch (error) {
+    console.error('Upload resume error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
 // Apply for job
 exports.applyForJob = async (req, res) => {
   try {
@@ -254,6 +312,11 @@ exports.applyForJob = async (req, res) => {
     const student = await Student.findOne({ user: req.user.id }).populate('user');
     if (!student) {
       return res.status(404).json({ error: 'Student profile not found' });
+    }
+
+    // Allow applications only for 3rd and 5th year students
+    if (!['3rd', '5th'].includes(student.year)) {
+      return res.status(403).json({ error: 'Only 3rd and 5th year students are allowed to apply for jobs.' });
     }
 
     // Check if job exists
@@ -271,16 +334,41 @@ exports.applyForJob = async (req, res) => {
       return res.status(409).json({ error: 'You have already applied for this job' });
     }
 
+    // Placement lock: if the student has already been selected in any company,
+    // they are not allowed to apply to another company.
+    const selectedApplication = await Application.findOne({
+      student: student._id,
+      status: 'selected'
+    }).populate('job', 'companyName position');
+
+    if (selectedApplication) {
+      const companyName = selectedApplication.job?.companyName || 'a company';
+      const position   = selectedApplication.job?.position   || 'a position';
+      return res.status(403).json({
+        error: `You have already been selected at ${companyName} for the position of ${position}. Students who have been placed cannot apply to other companies.`
+      });
+    }
+
+    // Track eligibility check: only enforce if the job specifies required tracks
+    if (Array.isArray(job.eligibleTracks) && job.eligibleTracks.length > 0) {
+      if (!student.track || !job.eligibleTracks.includes(student.track)) {
+        return res.status(403).json({
+          error: `You are not eligible for this job. Your track (${student.track || 'None'}) does not match the required track(s): ${job.eligibleTracks.join(', ')}.`
+        });
+      }
+    }
+
     // Create application
     const application = new Application({
       job: jobId,
       student: student._id,
-      applicantName: student.user.name,
-      applicantEmail: student.user.email,
+      applicantName: `${student.firstName || ''} ${student.lastName || ''}`.trim(),
+      applicantEmail: student.user?.email,
       applicantPhone: student.contact,
       applicantCourse: student.course,
       applicantYear: student.year,
       applicantBranch: student.branch,
+      resume: student.resume,
       formResponses: formResponses || []
     });
 
@@ -323,6 +411,11 @@ exports.getEligibleJobs = async (req, res) => {
       return res.status(404).json({ error: 'Student profile not found' });
     }
 
+    // Only 3rd and 5th year students should see eligible jobs
+    if (!['3rd', '5th'].includes(student.year)) {
+      return res.json([]);
+    }
+
     // Find jobs that match student's eligibility
     const jobs = await Job.find({
       $and: [
@@ -342,6 +435,12 @@ exports.getEligibleJobs = async (req, res) => {
           $or: [
             { eligibleYears: { $in: [student.year] } },
             { eligibleYears: { $size: 0 } }
+          ]
+        },
+        {
+          $or: [
+            { eligibleTracks: { $in: student.track ? [student.track] : [] } },
+            { eligibleTracks: { $size: 0 } }
           ]
         }
       ]
