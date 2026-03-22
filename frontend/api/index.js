@@ -43,6 +43,9 @@ api.interceptors.request.use(
 const stored = localStorage.getItem('token');
 if (stored) setAuthToken(stored);
 
+// Admin Analytics API additions
+export const fetchPendingCounts = () => api.get('/api/admin/pending-counts');
+
 export default function handler(req, res) {
   res.status(200).send('Welcome to DCSGU Backend API! 🚀');
   res.status(200).send('Welcome to DCSGU Backend API  🚀');

@@ -30,7 +30,8 @@ router.delete('/:id', requireAuth, requireAdmin, jobController.deleteJob);
 // Applications export
 router.get('/export-applications', requireAuth, requireAdmin, applicationController.exportApplicationsExcel);
 
-// Student approval management
+// Student approval and analytics management
+router.get('/pending-counts', requireAuth, requireAdmin, studentAdminController.getPendingCounts);
 router.get('/students/pending', requireAuth, requireAdmin, studentAdminController.getPendingStudents);
 router.patch('/students/:id/approve', requireAuth, requireAdmin, studentAdminController.approveStudent);
 router.delete('/students/:id/cancel', requireAuth, requireAdmin, studentAdminController.cancelStudent);

@@ -1,5 +1,6 @@
 const Student = require('../models/Student');
 const User = require('../models/User');
+const Application = require('../models/Application');
 
 // Get all pending students (not yet approved)
 // Uses $ne: true to catch students where isApproved is false, null, undefined,
@@ -12,6 +13,22 @@ exports.getPendingStudents = async (req, res) => {
     return res.json(students);
   } catch (error) {
     console.error('Get pending students error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Get counts for pending students and pending applications
+exports.getPendingCounts = async (req, res) => {
+  try {
+    const pendingStudentsCount = await Student.countDocuments({ isApproved: { $ne: true } });
+    const pendingApplicationsCount = await Application.countDocuments({ status: 'pending' });
+
+    return res.json({
+      pendingStudents: pendingStudentsCount,
+      pendingApplications: pendingApplicationsCount
+    });
+  } catch (error) {
+    console.error('Get pending counts error:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
