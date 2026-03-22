@@ -35,6 +35,10 @@ const StudentDashboard = () => {
   const [experienceFilter, setExperienceFilter] = useState({ company: '', role: '' });
   const navigate = useNavigate();
 
+  // Pagination state for jobs
+  const [currentPage, setCurrentPage] = useState(1);
+  const jobsPerPage = 6;
+
   // Add API_BASE_URL constant
   const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -478,7 +482,10 @@ const StudentDashboard = () => {
             ].map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
-                onClick={() => setActiveTab(id)}
+                onClick={() => {
+                  setActiveTab(id);
+                  if (id === 'jobs') setCurrentPage(1);
+                }}
                 className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
                   activeTab === id
                     ? 'bg-blue-100 text-blue-700'
@@ -658,101 +665,131 @@ const StudentDashboard = () => {
         )}
 
         {/* Jobs Tab */}
-        {activeTab === 'jobs' && (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900">Available Jobs</h2>
-              <p className="text-sm text-gray-600">{eligibleJobs.length} jobs match your profile</p>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {eligibleJobs.map((job) => {
-                const hasApplied = applications.some(app => app.job?._id === job._id);
-                const isEligibleYear = ['3rd', '5th'].includes(student?.year);
-                return (
-                  <div key={job._id} className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h3 className="font-semibold text-gray-900">{job.position}</h3>
-                        <p className="text-sm text-gray-600">{job.companyName}</p>
+        {activeTab === 'jobs' && (() => {
+          const indexOfLastJob = currentPage * jobsPerPage;
+          const indexOfFirstJob = indexOfLastJob - jobsPerPage;
+          const currentJobs = eligibleJobs.slice(indexOfFirstJob, indexOfLastJob);
+          const totalPages = Math.ceil(eligibleJobs.length / jobsPerPage);
+
+          return (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-gray-900">Available Jobs</h2>
+                <p className="text-sm text-gray-600">{eligibleJobs.length} jobs match your profile</p>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {currentJobs.map((job) => {
+                  const hasApplied = applications.some(app => app.job?._id === job._id);
+                  const isEligibleYear = ['3rd', '5th'].includes(student?.year);
+                  return (
+                    <div key={job._id} className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow">
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <h3 className="font-semibold text-gray-900">{job.position}</h3>
+                          <p className="text-sm text-gray-600">{job.companyName}</p>
+                        </div>
+                        {job.companyLogo && (
+                          <img 
+                            src={getCompanyLogoUrl(job.companyLogo)} 
+                            alt={job.companyName} 
+                            className="h-10 w-10 rounded object-contain bg-white border border-gray-200 p-1"
+                            onError={(e) => {
+                              console.error('Failed to load logo:', getCompanyLogoUrl(job.companyLogo));
+                              e.target.src = `${API_BASE_URL}/assets/faculties/bg-logo.png`;
+                              e.target.onerror = null;
+                            }}
+                          />
+                        )}
                       </div>
-                      {job.companyLogo && (
-                        <img 
-                          src={getCompanyLogoUrl(job.companyLogo)} 
-                          alt={job.companyName} 
-                          className="h-10 w-10 rounded object-contain bg-white border border-gray-200 p-1"
-                          onError={(e) => {
-                            console.error('Failed to load logo:', getCompanyLogoUrl(job.companyLogo));
-                            e.target.src = `${API_BASE_URL}/assets/faculties/bg-logo.png`;
-                            e.target.onerror = null;
+                      
+                      <div className="space-y-2 mb-4">
+                        <div className="flex items-center text-sm text-gray-600">
+                          <MapPin className="w-4 h-4 mr-2 text-gray-400" />
+                          <span>{job.location}</span>
+                        </div>
+                        <div className="flex items-center text-sm text-gray-600">
+                          <IndianRupee className="w-4 h-4 mr-2 text-gray-400" />
+                          <span>{job.salaryPackage}</span>
+                        </div>
+                        <div className="flex items-center text-sm text-gray-600">
+                          <Calendar className="w-4 h-4 mr-2 text-gray-400" />
+                          <span>Apply by: {new Date(job.applicationDeadline).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+
+                      {job.jobDescriptionFile && (
+                        <div className="mb-3">
+                          <a
+                            href={`${API_BASE_URL}${job.jobDescriptionFile}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center text-xs text-blue-600 hover:text-blue-800 underline"
+                          >
+                            View Job Description (JD)
+                          </a>
+                        </div>
+                      )}
+                      
+                      {hasApplied ? (
+                        <button
+                          disabled
+                          className="w-full py-2 px-4 bg-gray-100 text-gray-500 rounded-md text-sm font-medium cursor-not-allowed"
+                        >
+                          Already Applied
+                        </button>
+                      ) : !isEligibleYear ? (
+                        <button
+                          disabled
+                          className="w-full py-2 px-4 bg-gray-100 text-gray-400 rounded-md text-sm font-medium cursor-not-allowed"
+                        >
+                          Not eligible to apply (Year)
+                        </button>
+                      ) : (job.minCgpa > 0 && student?.cgpa < job.minCgpa) ? (
+                        <div className="w-full py-2 px-4 bg-red-100 text-red-700 border border-red-300 rounded-md text-sm font-bold text-center">
+                          You are not eligible to apply
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setSelectedJob(job);
+                            setShowApplicationForm(true);
                           }}
-                        />
+                          className="w-full py-2 px-4 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700"
+                        >
+                          Apply Now
+                        </button>
                       )}
                     </div>
-                    
-                    <div className="space-y-2 mb-4">
-                      <div className="flex items-center text-sm text-gray-600">
-                        <MapPin className="w-4 h-4 mr-2 text-gray-400" />
-                        <span>{job.location}</span>
-                      </div>
-                      <div className="flex items-center text-sm text-gray-600">
-                        <IndianRupee className="w-4 h-4 mr-2 text-gray-400" />
-                        <span>{job.salaryPackage}</span>
-                      </div>
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Calendar className="w-4 h-4 mr-2 text-gray-400" />
-                        <span>Apply by: {new Date(job.applicationDeadline).toLocaleDateString()}</span>
-                      </div>
-                    </div>
+                  );
+                })}
+              </div>
 
-                    {job.jobDescriptionFile && (
-                      <div className="mb-3">
-                        <a
-                          href={`${API_BASE_URL}${job.jobDescriptionFile}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center text-xs text-blue-600 hover:text-blue-800 underline"
-                        >
-                          View Job Description (JD)
-                        </a>
-                      </div>
-                    )}
-                    
-                    {hasApplied ? (
-                      <button
-                        disabled
-                        className="w-full py-2 px-4 bg-gray-100 text-gray-500 rounded-md text-sm font-medium cursor-not-allowed"
-                      >
-                        Already Applied
-                      </button>
-                    ) : !isEligibleYear ? (
-                      <button
-                        disabled
-                        className="w-full py-2 px-4 bg-gray-100 text-gray-400 rounded-md text-sm font-medium cursor-not-allowed"
-                      >
-                        Not eligible to apply (Year)
-                      </button>
-                    ) : (job.minCgpa > 0 && student?.cgpa < job.minCgpa) ? (
-                      <div className="w-full py-2 px-4 bg-red-100 text-red-700 border border-red-300 rounded-md text-sm font-bold text-center">
-                        You are not eligible to apply
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          setSelectedJob(job);
-                          setShowApplicationForm(true);
-                        }}
-                        className="w-full py-2 px-4 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700"
-                      >
-                        Apply Now
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex justify-center items-center space-x-4 mt-8">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-sm font-medium text-gray-700">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Applications Tab */}
         {activeTab === 'applications' && (
