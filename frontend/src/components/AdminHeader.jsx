@@ -1,14 +1,38 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './AdminHeader.css';
 import logo from '../assets/gulogo2.png';
-
+import { fetchPendingCounts } from '../../api';
 
 const AdminHeader = () => {
   const navigate = useNavigate();
   
   const adminUser = JSON.parse(localStorage.getItem('adminUser') || '{}');
   const isSuperAdmin = adminUser.role === 'super_admin';
+
+  const [pendingCounts, setPendingCounts] = useState({
+    pendingStudents: 0,
+    pendingApplications: 0
+  });
+
+  useEffect(() => {
+    const loadPendingCounts = async () => {
+      try {
+        const response = await fetchPendingCounts();
+        console.log('✅ Pending Counts Response:', response.data);
+        setPendingCounts(response.data);
+      } catch (error) {
+        console.error('❌ Failed to load pending counts:', error);
+      }
+    };
+    
+    // Initial fetch
+    loadPendingCounts();
+    
+    // Optional polling (e.g., every 30 seconds)
+    // const intervalId = setInterval(loadPendingCounts, 30000);
+    // return () => clearInterval(intervalId);
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('adminToken');
@@ -47,13 +71,19 @@ const AdminHeader = () => {
               className="nav-btn"
               onClick={() => handleNavigation('/application-management')}
             >
-            Application Management
+              Application Management
+              {pendingCounts.pendingApplications > 0 && (
+                <span className="notification-badge">{pendingCounts.pendingApplications}</span>
+              )}
             </button>
             <button 
               className="nav-btn"
               onClick={() => handleNavigation('/admin-students')}
             >
               Student Approvals
+              {pendingCounts.pendingStudents > 0 && (
+                <span className="notification-badge">{pendingCounts.pendingStudents}</span>
+              )}
             </button>
             <button 
               className="nav-btn"
