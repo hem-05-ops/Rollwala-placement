@@ -15,7 +15,10 @@ import {
   MessageSquare,
   Clock,
   MapPin,
-  IndianRupee
+  IndianRupee,
+  Building,
+  Star,
+  CheckCircle
 } from 'lucide-react';
 import StudentCalendar from './StudentCalendar';
 import { getAuthToken, handleUnauthorized } from '../lib/auth';
@@ -34,6 +37,10 @@ const StudentDashboard = () => {
   const [loadingExperiences, setLoadingExperiences] = useState(false);
   const [experienceFilter, setExperienceFilter] = useState({ company: '', role: '' });
   const navigate = useNavigate();
+
+  // Pagination state for jobs
+  const [currentPage, setCurrentPage] = useState(1);
+  const jobsPerPage = 6;
 
   // Add API_BASE_URL constant
   const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -478,7 +485,10 @@ const StudentDashboard = () => {
             ].map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
-                onClick={() => setActiveTab(id)}
+                onClick={() => {
+                  setActiveTab(id);
+                  if (id === 'jobs') setCurrentPage(1);
+                }}
                 className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
                   activeTab === id
                     ? 'bg-blue-100 text-blue-700'
@@ -658,146 +668,245 @@ const StudentDashboard = () => {
         )}
 
         {/* Jobs Tab */}
-        {activeTab === 'jobs' && (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900">Available Jobs</h2>
-              <p className="text-sm text-gray-600">{eligibleJobs.length} jobs match your profile</p>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {eligibleJobs.map((job) => {
-                const hasApplied = applications.some(app => app.job?._id === job._id);
-                const isEligibleYear = ['3rd', '5th'].includes(student?.year);
-                return (
-                  <div key={job._id} className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h3 className="font-semibold text-gray-900">{job.position}</h3>
-                        <p className="text-sm text-gray-600">{job.companyName}</p>
+        {activeTab === 'jobs' && (() => {
+          const indexOfLastJob = currentPage * jobsPerPage;
+          const indexOfFirstJob = indexOfLastJob - jobsPerPage;
+          const currentJobs = eligibleJobs.slice(indexOfFirstJob, indexOfLastJob);
+          const totalPages = Math.ceil(eligibleJobs.length / jobsPerPage);
+
+          return (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-gray-900">Available Jobs</h2>
+                <p className="text-sm text-gray-600">{eligibleJobs.length} jobs match your profile</p>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {currentJobs.map((job) => {
+                  const hasApplied = applications.some(app => app.job?._id === job._id);
+                  const isEligibleYear = ['3rd', '5th'].includes(student?.year);
+                  return (
+                    <div key={job._id} className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow">
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <h3 className="font-semibold text-gray-900">{job.position}</h3>
+                          <p className="text-sm text-gray-600">{job.companyName}</p>
+                        </div>
+                        {job.companyLogo && (
+                          <img 
+                            src={getCompanyLogoUrl(job.companyLogo)} 
+                            alt={job.companyName} 
+                            className="h-10 w-10 rounded object-contain bg-white border border-gray-200 p-1"
+                            onError={(e) => {
+                              console.error('Failed to load logo:', getCompanyLogoUrl(job.companyLogo));
+                              e.target.src = `${API_BASE_URL}/assets/faculties/bg-logo.png`;
+                              e.target.onerror = null;
+                            }}
+                          />
+                        )}
                       </div>
-                      {job.companyLogo && (
-                        <img 
-                          src={getCompanyLogoUrl(job.companyLogo)} 
-                          alt={job.companyName} 
-                          className="h-10 w-10 rounded object-contain bg-white border border-gray-200 p-1"
-                          onError={(e) => {
-                            console.error('Failed to load logo:', getCompanyLogoUrl(job.companyLogo));
-                            e.target.src = `${API_BASE_URL}/assets/faculties/bg-logo.png`;
-                            e.target.onerror = null;
+                      
+                      <div className="space-y-2 mb-4">
+                        <div className="flex items-center text-sm text-gray-600">
+                          <MapPin className="w-4 h-4 mr-2 text-gray-400" />
+                          <span>{job.location}</span>
+                        </div>
+                        <div className="flex items-center text-sm text-gray-600">
+                          <IndianRupee className="w-4 h-4 mr-2 text-gray-400" />
+                          <span>{job.salaryPackage}</span>
+                        </div>
+                        <div className="flex items-center text-sm text-gray-600">
+                          <Calendar className="w-4 h-4 mr-2 text-gray-400" />
+                          <span>Apply by: {new Date(job.applicationDeadline).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+
+                      {job.jobDescriptionFile && (
+                        <div className="mb-3">
+                          <a
+                            href={`${API_BASE_URL}${job.jobDescriptionFile}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center text-xs text-blue-600 hover:text-blue-800 underline"
+                          >
+                            View Job Description (JD)
+                          </a>
+                        </div>
+                      )}
+                      
+                      {hasApplied ? (
+                        <button
+                          disabled
+                          className="w-full py-2 px-4 bg-gray-100 text-gray-500 rounded-md text-sm font-medium cursor-not-allowed"
+                        >
+                          Already Applied
+                        </button>
+                      ) : !isEligibleYear ? (
+                        <button
+                          disabled
+                          className="w-full py-2 px-4 bg-gray-100 text-gray-400 rounded-md text-sm font-medium cursor-not-allowed"
+                        >
+                          Not eligible to apply (Year)
+                        </button>
+                      ) : (job.minCgpa > 0 && student?.cgpa < job.minCgpa) ? (
+                        <div className="w-full py-2 px-4 bg-red-100 text-red-700 border border-red-300 rounded-md text-sm font-bold text-center">
+                          You are not eligible to apply
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setSelectedJob(job);
+                            setShowApplicationForm(true);
                           }}
-                        />
+                          className="w-full py-2 px-4 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700"
+                        >
+                          Apply Now
+                        </button>
                       )}
                     </div>
-                    
-                    <div className="space-y-2 mb-4">
-                      <div className="flex items-center text-sm text-gray-600">
-                        <MapPin className="w-4 h-4 mr-2 text-gray-400" />
-                        <span>{job.location}</span>
-                      </div>
-                      <div className="flex items-center text-sm text-gray-600">
-                        <IndianRupee className="w-4 h-4 mr-2 text-gray-400" />
-                        <span>{job.salaryPackage}</span>
-                      </div>
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Calendar className="w-4 h-4 mr-2 text-gray-400" />
-                        <span>Apply by: {new Date(job.applicationDeadline).toLocaleDateString()}</span>
-                      </div>
-                    </div>
+                  );
+                })}
+              </div>
 
-                    {job.jobDescriptionFile && (
-                      <div className="mb-3">
-                        <a
-                          href={`${API_BASE_URL}${job.jobDescriptionFile}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center text-xs text-blue-600 hover:text-blue-800 underline"
-                        >
-                          View Job Description (JD)
-                        </a>
-                      </div>
-                    )}
-                    
-                    {hasApplied ? (
-                      <button
-                        disabled
-                        className="w-full py-2 px-4 bg-gray-100 text-gray-500 rounded-md text-sm font-medium cursor-not-allowed"
-                      >
-                        Already Applied
-                      </button>
-                    ) : !isEligibleYear ? (
-                      <button
-                        disabled
-                        className="w-full py-2 px-4 bg-gray-100 text-gray-400 rounded-md text-sm font-medium cursor-not-allowed"
-                      >
-                        Not eligible to apply (Year)
-                      </button>
-                    ) : (job.minCgpa > 0 && student?.cgpa < job.minCgpa) ? (
-                      <div className="w-full py-2 px-4 bg-red-100 text-red-700 border border-red-300 rounded-md text-sm font-bold text-center">
-                        You are not eligible to apply
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          setSelectedJob(job);
-                          setShowApplicationForm(true);
-                        }}
-                        className="w-full py-2 px-4 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700"
-                      >
-                        Apply Now
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex justify-center items-center space-x-4 mt-8">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-sm font-medium text-gray-700">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          );
+        })()}
 
-        {/* Applications Tab */}
-        {activeTab === 'applications' && (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">My Applications</h2>
-            
-            <div className="bg-white shadow overflow-hidden sm:rounded-md">
-              <ul className="divide-y divide-gray-200">
-                {applications.map((application) => (
-                  <li key={application._id} className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-lg font-medium text-gray-900">
-                            {application.job?.position || 'Position not available'}
-                          </h3>
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(application.status)}`}>
-                            {application.status?.charAt(0).toUpperCase() + application.status?.slice(1) || 'Unknown'}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-600">{application.job?.companyName || 'Company not available'}</p>
-                        <div className="mt-2 flex items-center text-sm text-gray-500">
-                          <Calendar className="h-4 w-4 mr-1" />
-                          Applied on {new Date(application.appliedAt).toLocaleDateString()}
-                        </div>
-                        {application.adminNotes && (
-                          <div className="mt-2 p-3 bg-gray-50 rounded-md">
-                            <p className="text-sm text-gray-700">
-                              <strong>Admin Notes:</strong> {application.adminNotes}
-                            </p>
+           {/* Applications Kanban Tab */}
+        {activeTab === 'applications' && (() => {
+          const statuses = [
+            { 
+              id: 'pending', 
+              title: 'Applied', 
+              color: 'text-amber-600', 
+              bgBase: 'bg-amber-50',
+              borderTheme: 'border-t-amber-400',
+              icon: <Clock className="w-5 h-5 text-amber-500" />
+            },
+            { 
+              id: 'shortlisted', 
+              title: 'Shortlisted', 
+              color: 'text-blue-600', 
+              bgBase: 'bg-blue-50',
+              borderTheme: 'border-t-blue-500',
+              icon: <Star className="w-5 h-5 text-blue-500" />
+            },
+            { 
+              id: 'selected', 
+              title: 'Selected', 
+              color: 'text-emerald-600', 
+              bgBase: 'bg-emerald-50',
+              borderTheme: 'border-t-emerald-500',
+              icon: <CheckCircle className="w-5 h-5 text-emerald-500" />
+            }
+          ];
+
+          return (
+            <div className="space-y-6">
+              <div className="flex justify-between items-end mb-8">
+                <div>
+                  <h2 className="text-3xl font-bold text-gray-900 tracking-tight">Application Tracker</h2>
+                  <p className="text-sm text-gray-500 mt-1">Visually monitor your journey from application to offer.</p>
+                </div>
+              </div>
+              
+              <div className="flex overflow-x-auto gap-6 pb-6 min-h-[600px] items-start" style={{ scrollbarWidth: 'thin' }}>
+                {statuses.map(statusCol => {
+                  const colApps = applications.filter(app => app.status === statusCol.id);
+                  return (
+                    <div key={statusCol.id} className="flex-shrink-0 w-[340px] bg-slate-50/80 rounded-2xl flex flex-col max-h-[800px] border border-slate-200 shadow-sm relative overflow-hidden">
+                      {/* Top colored accent line */}
+                      <div className={`absolute top-0 left-0 right-0 h-1 border-t-[3px] ${statusCol.borderTheme}`}></div>
+                      
+                      {/* Column Header */}
+                      <div className="p-5 border-b border-slate-200/60 bg-white/50 backdrop-blur-sm flex items-center justify-between z-10">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-xl ${statusCol.bgBase} shadow-sm border border-white`}>
+                            {statusCol.icon}
                           </div>
+                          <h3 className="text-lg font-semibold text-slate-800 tracking-wide">{statusCol.title}</h3>
+                        </div>
+                        <span className="bg-white text-slate-700 py-1 px-3 border border-slate-200 rounded-full text-sm font-bold shadow-sm">
+                          {colApps.length}
+                        </span>
+                      </div>
+                      
+                      {/* Column Content */}
+                      <div className="p-4 overflow-y-auto flex-1 space-y-4" style={{ scrollbarWidth: 'none' }}>
+                        {colApps.length === 0 ? (
+                          <div className="h-32 flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50 mt-2">
+                            <span className="text-sm font-medium">No applications</span>
+                          </div>
+                        ) : (
+                          colApps.map(app => (
+                            <div key={app._id} className="group bg-white p-5 rounded-xl shadow-sm border border-slate-200/80 hover:shadow-lg hover:border-slate-300 transition-all duration-300 cursor-pointer transform hover:-translate-y-1 relative overflow-hidden">
+                              {/* Left status indicator line */}
+                              <div className={`absolute left-0 top-0 bottom-0 w-1 ${statusCol.bgBase.replace('50', '400')} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}></div>
+                              
+                              <h4 className="font-bold text-slate-800 mb-2 truncate text-base" title={app.job?.position}>
+                                {app.job?.position || 'Position not available'}
+                              </h4>
+                              
+                              <p className="text-sm text-slate-600 font-medium mb-4 flex items-center gap-2 truncate" title={app.job?.companyName}>
+                                <div className="p-1.5 bg-slate-100 rounded-lg text-slate-500">
+                                  <Building className="w-3.5 h-3.5 flex-shrink-0" />
+                                </div>
+                                {app.job?.companyName || 'Company not available'}
+                              </p>
+                              
+                              <div className="flex justify-between items-center text-xs border-t border-slate-100 pt-3">
+                                <span className="flex items-center gap-1.5 text-slate-500 font-medium bg-slate-50 px-2.5 py-1.5 rounded-md border border-slate-100">
+                                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                                  {new Date(app.appliedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                </span>
+                                {app.job?.salaryPackage && (
+                                  <span className="flex items-center gap-1 font-bold text-slate-700 bg-emerald-50 px-2.5 py-1.5 rounded-md border border-emerald-100">
+                                    <IndianRupee className="w-3 h-3 text-emerald-500" />
+                                    {app.job.salaryPackage}
+                                  </span>
+                                )}
+                              </div>
+                              
+                              {app.adminNotes && (
+                                <div className="mt-4 text-xs bg-amber-50 text-amber-800 p-3 rounded-lg border border-amber-200/50 relative">
+                                  <div className="absolute top-0 left-0 bottom-0 w-1 bg-amber-400 rounded-l-lg"></div>
+                                  <span className="font-bold block mb-1 text-amber-900 ml-1 tracking-wide text-[10px] uppercase">Review Note</span>
+                                  <span className="ml-1 leading-relaxed">{app.adminNotes}</span>
+                                </div>
+                              )}
+                            </div>
+                          ))
                         )}
                       </div>
                     </div>
-                  </li>
-                ))}
-                {applications.length === 0 && (
-                  <li className="p-6 text-center text-gray-500">
-                    No applications submitted yet. Start applying to jobs!
-                  </li>
-                )}
-              </ul>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Calendar Tab */}
         {activeTab === 'calendar' && (
