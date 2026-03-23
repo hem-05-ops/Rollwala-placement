@@ -225,7 +225,8 @@ const corsOptions = {
     "http://localhost:3000",
     "http://localhost:5173",
     "http://localhost:5000",
-    "http://192.168.91.1:5000"
+    "http://192.168.91.1:5000",
+     "https://rollwala-placement-frontend.onrender.com"
   ],
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   credentials: true,
