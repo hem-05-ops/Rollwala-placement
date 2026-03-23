@@ -1,7 +1,7 @@
 // frontend/src/api/applicationApi.js
 
 // Use a direct URL instead of process.env for browser compatibility
-const API_BASE_URL = 'http://localhost:3000/api'; // ← Backend port 3000
+const API_BASE_URL =`${import.meta.env.VITE_API_URL}/api`; // ← Backend port 3000
 
 // Helper function for API calls
 const apiRequest = async (endpoint, options = {}) => {
