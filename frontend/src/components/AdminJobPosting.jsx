@@ -28,17 +28,29 @@ const initialForm = {
   additionalInfo: '',
   eligibleCourses: [],
   eligibleBranches: [],
-  eligibleYears: [],
+  eligibleSemesters: [],
   eligibleTracks: [],
+  courseEligibility: [], // Array of { course, semesters: [] }
   minCgpa: 0
 };
 
 // Add these arrays for dropdown options
 const COURSES = ['BSc.CS', 'MSc.CS', 'MSc.AIML', 'MCA'];
 const BRANCHES = ['WD', 'AIML'];
-const YEARS = [ '2024', '2025', '2026', '2027'];
+const COURSE_SEMESTER_MAP = {
+  'BSc.CS': 6,
+  'MSc.CS': 4,
+  'MCA': 4,
+  'MSc.AIML': 4
+};
 const JOB_TYPES = ['Full-time', 'Part-time', 'Internship', 'Contract'];
-const TRACKS = ['.NET', 'Java', 'Data Science', 'Python', 'Web Development', 'Other'];
+const TRACKS = ['.NET', 'Java', 'Data Science', 'Python', 'Web Development'];
+
+const getAvailableSemesters = (eligibleCourses) => {
+  if (!eligibleCourses || eligibleCourses.length === 0) return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  const maxSem = Math.max(...eligibleCourses.map(c => COURSE_SEMESTER_MAP[c] || 10));
+  return Array.from({ length: maxSem }, (_, i) => i + 1);
+};
 
 const AdminJobPosting = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -68,6 +80,8 @@ const AdminJobPosting = () => {
   const pageSize = 5;
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [tempTrack, setTempTrack] = useState(''); // State for custom track input
+  const [isOtherChecked, setIsOtherChecked] = useState(false); // State for "Other" checkbox toggle
 
   useEffect(() => {
     const maxPage = Math.max(1, Math.ceil(jobPostings.length / pageSize));
@@ -104,26 +118,123 @@ const AdminJobPosting = () => {
   };
   // Handle checkbox change for multiple selections
   const handleCheckboxChange = (field, value) => {
-    const currentValues = formData[field] || [];
+    const currentValues = Array.isArray(formData[field]) ? formData[field] : [];
     const updatedValues = currentValues.includes(value)
       ? currentValues.filter(item => item !== value)
       : [...currentValues, value];
     
-    setFormData({
-      ...formData,
-      [field]: updatedValues
+    setFormData(prev => {
+      const updated = { ...prev, [field]: updatedValues };
+      
+      // If courses changed, sync courseEligibility
+      if (field === 'eligibleCourses') {
+        const newEligibility = (updatedValues || []).map(course => {
+          const existing = (prev.courseEligibility || []).find(ce => ce.course === course);
+          return existing || { course, semesters: [] };
+        });
+        updated.courseEligibility = newEligibility;
+        
+        // Also keep eligibleSemesters (flat) for backward compatibility or simpler logic
+        const availableSems = getAvailableSemesters(updatedValues);
+        updated.eligibleSemesters = (prev.eligibleSemesters || []).filter(sem => availableSems.includes(sem));
+      }
+      return updated;
     });
   };
 
-  // Handle select all/clear all for multiple selections
-  const handleSelectAll = (field, options) => {
-    const currentValues = formData[field] || [];
-    const allSelected = options.every(option => currentValues.includes(option));
-    
-    setFormData({
-      ...formData,
-      [field]: allSelected ? [] : options
+  const handleCourseSemesterToggle = (course, semester) => {
+    setFormData(prev => {
+      const eligibility = [...(prev.courseEligibility || [])];
+      const index = eligibility.findIndex(ce => ce.course === course);
+      
+      if (index === -1) {
+        // Should not happen if UI is consistent, but for safety:
+        eligibility.push({ course, semesters: [semester] });
+      } else {
+        const semesters = [...eligibility[index].semesters];
+        if (semesters.includes(semester)) {
+          eligibility[index] = { ...eligibility[index], semesters: semesters.filter(s => s !== semester) };
+        } else {
+          eligibility[index] = { ...eligibility[index], semesters: [...semesters, semester] };
+        }
+      }
+      
+      // Also update the flat eligibleSemesters for compatibility
+      const allSems = new Set();
+      eligibility.forEach(ce => ce.semesters.forEach(s => allSems.add(s)));
+      
+      return { 
+        ...prev, 
+        courseEligibility: eligibility,
+        eligibleSemesters: Array.from(allSems).sort((a, b) => a - b)
+      };
     });
+  };
+
+  const handleCourseSelectAllSemesters = (course) => {
+    setFormData(prev => {
+      const eligibility = [...(prev.courseEligibility || [])];
+      const index = eligibility.findIndex(ce => ce.course === course);
+      if (index === -1) return prev;
+
+      const maxSem = COURSE_SEMESTER_MAP[course] || 10;
+      const allSems = Array.from({ length: maxSem }, (_, i) => i + 1);
+      
+      const isAllSelected = eligibility[index].semesters.length === allSems.length;
+      eligibility[index] = { ...eligibility[index], semesters: isAllSelected ? [] : allSems };
+
+      // Update flat list
+      const flatSems = new Set();
+      eligibility.forEach(ce => ce.semesters.forEach(s => flatSems.add(s)));
+
+      return {
+        ...prev,
+        courseEligibility: eligibility,
+        eligibleSemesters: Array.from(flatSems).sort((a, b) => a - b)
+      };
+    });
+  };
+
+  const handleSelectAll = (field, options) => {
+    const currentValues = Array.isArray(formData[field]) ? formData[field] : [];
+    
+    // Special handling for tech tracks "Select All" checkbox
+    if (field === 'eligibleTracks') {
+      const allSelected = TRACKS.every(t => currentValues.includes(t));
+      setFormData(prev => {
+        const others = (prev.eligibleTracks || []).filter(t => !TRACKS.includes(t));
+        return { 
+          ...prev, 
+          eligibleTracks: allSelected ? others : [...others, ...TRACKS] 
+        };
+      });
+      return;
+    }
+
+    const allSelected = options.every(option => currentValues.includes(option));
+    const updatedValues = allSelected ? [] : [...options];
+    
+    setFormData(prev => {
+      const updated = { ...prev, [field]: updatedValues };
+      
+      // If courses changed, cleanup semesters that are no longer available
+      if (field === 'eligibleCourses') {
+        const availableSems = getAvailableSemesters(updatedValues);
+        updated.eligibleSemesters = (prev.eligibleSemesters || []).filter(sem => availableSems.includes(sem));
+      }
+      return updated;
+    });
+  };
+
+  const addCustomTrack = () => {
+    const track = (tempTrack || '').trim();
+    if (!track) return;
+    setFormData(prev => {
+      const current = Array.isArray(prev.eligibleTracks) ? prev.eligibleTracks : [];
+      if (current.includes(track)) return prev;
+      return { ...prev, eligibleTracks: [...current, track] };
+    });
+    setTempTrack('');
   };
 
   const handleLogoUpload = (e) => {
@@ -176,8 +287,8 @@ const AdminJobPosting = () => {
       setError('Please select at least one eligible course.');
       return;
     }
-    if (formData.eligibleYears.length === 0) {
-      setError('Please select at least one eligible year.');
+    if (formData.eligibleSemesters.length === 0) {
+      setError('Please select at least one eligible semester.');
       return;
     }
     if (!editId && !jobDescriptionFile) {
@@ -218,10 +329,13 @@ const AdminJobPosting = () => {
       // Arrays: use bracketed names to match backend parser
       (formData.eligibleCourses || []).forEach(v => fd.append('eligibleCourses[]', v));
       (formData.eligibleBranches || []).forEach(v => fd.append('eligibleBranches[]', v));
-      (formData.eligibleYears || []).forEach(v => fd.append('eligibleYears[]', v));
+      (formData.eligibleSemesters || []).forEach(v => fd.append('eligibleSemesters[]', v));
       (formData.eligibleTracks || []).forEach(v => fd.append('eligibleTracks[]', v));
+      
+      // Course Eligibility (nested objects need special handling for FormData or JSON string)
+      fd.append('courseEligibility', JSON.stringify(formData.courseEligibility || []));
+      
       fd.append('minCgpa', formData.minCgpa ?? 0);
-      // Also send multi fields for future compatibility (ignored by current backend if not handled)
       normalizedJobTypes.forEach(v => fd.append('jobTypes[]', v));
       normalizedPositions.forEach(v => fd.append('positions[]', v));
 
@@ -245,6 +359,8 @@ const AdminJobPosting = () => {
       setLogoPreview('');
       setLogoFile(null);
       setJobDescriptionFile(null);
+      setIsOtherChecked(false);
+      setTempTrack('');
     } catch (error) {
       console.error('Error saving job:', error);
       setError('Error saving job. Please try again.');
@@ -285,7 +401,7 @@ const AdminJobPosting = () => {
             : []),
       eligibleCourses: Array.isArray(job.eligibleCourses) ? job.eligibleCourses : [],
       eligibleBranches: Array.isArray(job.eligibleBranches) ? job.eligibleBranches : [],
-      eligibleYears: Array.isArray(job.eligibleYears) ? job.eligibleYears : [],
+      eligibleSemesters: Array.isArray(job.eligibleSemesters) ? job.eligibleSemesters : [],
       eligibleTracks: Array.isArray(job.eligibleTracks) ? job.eligibleTracks : [],
       minCgpa: typeof job.minCgpa === 'number' ? job.minCgpa : 0,
       jobTypes: Array.isArray(job.jobTypes)
@@ -293,7 +409,17 @@ const AdminJobPosting = () => {
         : (typeof job.jobType === 'string' && job.jobType.length
             ? job.jobType.split(',').map(s => s.trim()).filter(Boolean)
             : []),
+      courseEligibility: Array.isArray(job.courseEligibility) && job.courseEligibility.length > 0
+        ? job.courseEligibility
+        : (Array.isArray(job.eligibleCourses) ? job.eligibleCourses.map(course => ({
+            course,
+            semesters: Array.isArray(job.eligibleSemesters) ? job.eligibleSemesters.filter(s => (COURSE_SEMESTER_MAP[course] || 10) >= s) : []
+          })) : []),
     };
+    
+    // Sync isOtherChecked state: true if there are tracks not in predefined TRACKS
+    const hasOtherTracks = editFormData.eligibleTracks.some(t => !TRACKS.includes(t));
+    setIsOtherChecked(hasOtherTracks);
     
     console.log('Form data for edit:', editFormData); // Debug log
     
@@ -328,6 +454,8 @@ const AdminJobPosting = () => {
     setFormData(initialForm);
     setLogoPreview('');
     setLogoFile(null);
+    setIsOtherChecked(false);
+    setTempTrack('');
     setActiveTab('manage');
   };
   // Handle tab changes
@@ -338,6 +466,8 @@ const AdminJobPosting = () => {
       setFormData(initialForm);
       setLogoPreview('');
       setLogoFile(null);
+      setIsOtherChecked(false);
+      setTempTrack('');
     }
     setActiveTab(tab);
     // Update URL parameter when tab changes
@@ -386,7 +516,7 @@ const getJobDescriptionUrl = (posting) => {
     const current = Array.isArray(formData.positions) ? formData.positions : [];
     setFormData({ ...formData, positions: current.filter(t => t !== title) });
   };
-// const logoUrl = getCompanyLogoUrl(job.companyLogo);
+  
   return (
     <>
       <AdminHeader />
@@ -613,25 +743,53 @@ const getJobDescriptionUrl = (posting) => {
               <div className="form-row">
                 <div className="form-group">
                   <div className="eligibility-header">
-                    <label>Eligible Years*</label>
-                    <div className="selection-controls">
-                      <button type="button" className="select-all-btn" onClick={() => handleSelectAll('eligibleYears', YEARS)}>
-                        {formData.eligibleYears.length === YEARS.length ? 'Clear All' : 'Select All'}
-                      </button>
+                    <label>Eligible Semesters (Course-wise)*</label>
+                  </div>
+                  
+                  {formData.eligibleCourses.length === 0 ? (
+                    <div className="hint-text" style={{ padding: '10px 0' }}>Please select eligible courses first to see semester options.</div>
+                  ) : (
+                    <div className="course-semesters-container">
+                      {formData.eligibleCourses.map(course => {
+                        const eligibility = (formData.courseEligibility || []).find(ce => ce.course === course) || { semesters: [] };
+                        const maxSem = COURSE_SEMESTER_MAP[course] || 10;
+                        const sems = Array.from({ length: maxSem }, (_, i) => i + 1);
+                        
+                        return (
+                          <div key={course} className="course-sem-row" style={{ marginBottom: '15px', padding: '10px', border: '1px solid #eee', borderRadius: '8px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                              <strong style={{ color: '#444' }}>{course}</strong>
+                              <button 
+                                type="button" 
+                                className="select-all-btn" 
+                                style={{ fontSize: '0.75rem', padding: '2px 8px' }}
+                                onClick={() => handleCourseSelectAllSemesters(course)}
+                              >
+                                {eligibility.semesters.length === sems.length ? 'Clear All' : 'Select All'}
+                              </button>
+                            </div>
+                            <div className="checkbox-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '8px' }}>
+                              {sems.map(sem => (
+                                <label key={sem} className="checkbox-item" style={{ fontSize: '0.85rem' }}>
+                                  <input 
+                                    type="checkbox" 
+                                    checked={eligibility.semesters.includes(sem)} 
+                                    onChange={() => handleCourseSemesterToggle(course, sem)} 
+                                  />
+                                  <span className="checkbox-label">Sem {sem}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  </div>
-                  <div className="checkbox-grid">
-                    {YEARS.map(year => (
-                      <label key={year} className="checkbox-item">
-                        <input type="checkbox" checked={formData.eligibleYears.includes(year)} onChange={() => handleCheckboxChange('eligibleYears', year)} />
-                        <span className="checkbox-label">{year}</span>
-                      </label>
-                    ))}
-                  </div>
-                  {formData.eligibleYears.length > 0 && (
-                    <div className="selected-items">
-                      <span className="selected-label">Selected: </span>
-                      {formData.eligibleYears.join(', ')}
+                  )}
+                  
+                  {formData.eligibleSemesters.length > 0 && (
+                    <div className="selected-items" style={{ marginTop: '10px' }}>
+                      <span className="selected-label">Overall Selected Semesters: </span>
+                      {formData.eligibleSemesters.join(', ')}
                     </div>
                   )}
                 </div>
@@ -640,25 +798,62 @@ const getJobDescriptionUrl = (posting) => {
               <div className="form-row">
                 <div className="form-group">
                   <div className="eligibility-header">
-                    <label>Eligible Technology Tracks <span style={{fontWeight:'normal',fontSize:'0.85em'}}>(leave empty to allow all)</span></label>
-                    <div className="selection-controls">
-                      <button type="button" className="select-all-btn" onClick={() => handleSelectAll('eligibleTracks', TRACKS)}>
-                        {formData.eligibleTracks.length === TRACKS.length ? 'Clear All' : 'Select All'}
-                      </button>
-                    </div>
+                    <label>Eligible Technology Tracks <span style={{fontWeight:'normal',fontSize:'0.85em'}}>(leave empty or select "All" to allow all)</span></label>
                   </div>
                   <div className="checkbox-grid">
+                    <label className="checkbox-item" style={{ fontWeight: 'bold' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={TRACKS.length > 0 && TRACKS.every(t => formData.eligibleTracks.includes(t))} 
+                        onChange={() => handleSelectAll('eligibleTracks', TRACKS)} 
+                      />
+                      <span className="checkbox-label">All</span>
+                    </label>
                     {TRACKS.map(track => (
                       <label key={track} className="checkbox-item">
-                        <input type="checkbox" checked={formData.eligibleTracks.includes(track)} onChange={() => handleCheckboxChange('eligibleTracks', track)} />
+                        <input 
+                          type="checkbox" 
+                          checked={formData.eligibleTracks.includes(track)} 
+                          onChange={() => handleCheckboxChange('eligibleTracks', track)} 
+                        />
                         <span className="checkbox-label">{track}</span>
                       </label>
                     ))}
+                    {/* Special "Other" toggle checkbox */}
+                    <label className="checkbox-item">
+                      <input 
+                        type="checkbox" 
+                        checked={isOtherChecked} 
+                        onChange={() => setIsOtherChecked(!isOtherChecked)} 
+                      />
+                      <span className="checkbox-label">Other</span>
+                    </label>
                   </div>
+
+                  {/* Custom Track Input - Only show when "Other" is checked */}
+                  {isOtherChecked && (
+                    <div className="multi-title-row" style={{ marginTop: '10px' }}>
+                      <input 
+                        type="text" 
+                        placeholder="Add other custom track (e.g. Cloud Computing)" 
+                        value={tempTrack} 
+                        onChange={(e) => setTempTrack(e.target.value)}
+                      />
+                      <button type="button" className="add-btn" onClick={addCustomTrack}>Add</button>
+                    </div>
+                  )}
+
                   {formData.eligibleTracks.length > 0 && (
                     <div className="selected-items">
-                      <span className="selected-label">Selected: </span>
-                      {formData.eligibleTracks.join(', ')}
+                      <span className="selected-label">Selected Tracks: </span>
+                      <div className="chips">
+                        {formData.eligibleTracks.map(track => (
+                          <span key={track} className="chip">
+                            {track}
+                            <button type="button" className="chip-close" onClick={() => handleCheckboxChange('eligibleTracks', track)}>×</button>
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -744,7 +939,7 @@ const getJobDescriptionUrl = (posting) => {
           <th>Job Type</th>
           <th>Package</th>
           <th>Eligible Courses</th>
-          <th>Eligible Years</th>
+          <th>Eligible Semesters</th>
           <th>Deadline</th>
           <th>Actions</th>
         </tr>
@@ -782,7 +977,7 @@ const getJobDescriptionUrl = (posting) => {
                 <span> ({posting.eligibleBranches.join(', ')})</span>
               )}
             </td>
-            <td>{posting.eligibleYears?.join(', ') || '-'}</td>
+            <td>{posting.eligibleSemesters?.join(', ') || '-'}</td>
             <td>
               {posting.applicationDeadline 
                 ? new Date(posting.applicationDeadline).toLocaleDateString() 

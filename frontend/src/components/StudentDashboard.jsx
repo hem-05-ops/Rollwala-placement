@@ -123,7 +123,7 @@ const StudentDashboard = () => {
             rollNo: userFromStorage.rollNo || undefined,
             course: userFromStorage.course || undefined,
             branch: userFromStorage.branch || undefined,
-            year: userFromStorage.year || undefined,
+            semester: userFromStorage.semester || undefined,
             cgpa: typeof userFromStorage.cgpa === 'number' ? userFromStorage.cgpa : undefined,
             contact: userFromStorage.contact || undefined
           };
@@ -147,7 +147,7 @@ const StudentDashboard = () => {
               rollNo: userFromStorage.rollNo || '—',
               course: userFromStorage.course || '—',
               branch: userFromStorage.branch || '—',
-              year: userFromStorage.year || '—',
+              semester: userFromStorage.semester || '—',
               cgpa: userFromStorage.cgpa ?? '—',
               contact: userFromStorage.contact || '—',
               skills: [],
@@ -164,7 +164,7 @@ const StudentDashboard = () => {
             rollNo: userFromStorage.rollNo || '—',
             course: userFromStorage.course || '—',
             branch: userFromStorage.branch || '—',
-            year: userFromStorage.year || '—',
+            semester: userFromStorage.semester || '—',
             cgpa: userFromStorage.cgpa ?? '—',
             contact: userFromStorage.contact || '—',
             skills: [],
@@ -285,9 +285,11 @@ const StudentDashboard = () => {
 
   const handleApplyForJob = async (jobId) => {
     try {
-      // Frontend guard: only 3rd and 5th year students can apply
-      if (!['3rd', '5th'].includes(student?.year)) {
-        toast.error('You are not eligible to apply for jobs. Only 3rd and 5th year students can apply.');
+      // Frontend guard: check if student.semester is in job.eligibleSemesters
+      // Since we don't have the full job object here with eligibleSemesters (wait, we do have eligibleJobs)
+      const job = eligibleJobs.find(j => j._id === jobId);
+      if (job && job.eligibleSemesters && !job.eligibleSemesters.includes(student?.semester)) {
+        toast.error(`You are not eligible for this job. Your semester (${student?.semester}) is not in the eligible list.`);
         return;
       }
 
@@ -514,7 +516,7 @@ const StudentDashboard = () => {
                   </div>
                   <h3 className="text-xl font-semibold text-gray-900">{(student.user?.firstName || '') + (student.user?.lastName ? ' ' + student.user.lastName : '')}</h3>
                   <p className="text-gray-600">{student.rollNo}</p>
-                  <p className="text-sm text-gray-500">{student.course} • {student.branch} • {student.year}</p>
+                  <p className="text-sm text-gray-500">{student.course} • {student.branch} • Sem {student.semester}</p>
                   <div className="mt-4 flex justify-center">
                     <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
                       CGPA: {student.cgpa}
@@ -684,7 +686,7 @@ const StudentDashboard = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {currentJobs.map((job) => {
                   const hasApplied = applications.some(app => app.job?._id === job._id);
-                  const isEligibleYear = ['3rd', '5th'].includes(student?.year);
+                  const isEligibleSemester = job.eligibleSemesters?.includes(student?.semester);
                   return (
                     <div key={job._id} className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow">
                       <div className="flex items-start justify-between mb-4">
@@ -741,12 +743,12 @@ const StudentDashboard = () => {
                         >
                           Already Applied
                         </button>
-                      ) : !isEligibleYear ? (
+                      ) : !isEligibleSemester ? (
                         <button
                           disabled
                           className="w-full py-2 px-4 bg-gray-100 text-gray-400 rounded-md text-sm font-medium cursor-not-allowed"
                         >
-                          Not eligible to apply (Year)
+                          Not eligible to apply (Sem {student?.semester})
                         </button>
                       ) : (job.minCgpa > 0 && student?.cgpa < job.minCgpa) ? (
                         <div className="w-full py-2 px-4 bg-red-100 text-red-700 border border-red-300 rounded-md text-sm font-bold text-center">

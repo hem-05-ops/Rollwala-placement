@@ -10,14 +10,49 @@ const { sendBulkEmail } = require('../services/emailService');
 const runEligibilityCheck = (job, student) => {
   const reasons = [];
 
-  // 1. Course check
-  if (Array.isArray(job.eligibleCourses) && job.eligibleCourses.length > 0) {
-    if (!job.eligibleCourses.includes(student.course)) {
+  // 1. Granular Course-Semester check (Priority)
+  if (Array.isArray(job.courseEligibility) && job.courseEligibility.length > 0) {
+    const courseMatch = job.courseEligibility.find(ce => ce.course === student.course);
+    if (!courseMatch) {
       reasons.push({
         criterion: 'Course',
-        required: job.eligibleCourses.join(', '),
+        required: job.courseEligibility.map(ce => ce.course).join(', '),
         yours: student.course || 'Not set'
       });
+    } else {
+      // Course matches, check semesters for THIS course
+      if (Array.isArray(courseMatch.semesters) && courseMatch.semesters.length > 0) {
+        if (!courseMatch.semesters.includes(Number(student.semester))) {
+          reasons.push({
+            criterion: 'Semester',
+            extra: `Specifically for ${student.course}`,
+            required: courseMatch.semesters.join(', '),
+            yours: student.semester || 'Not set'
+          });
+        }
+      }
+    }
+  } else {
+    // Fallback to Legacy fields
+    // Legacy Course check
+    if (Array.isArray(job.eligibleCourses) && job.eligibleCourses.length > 0) {
+      if (!job.eligibleCourses.includes(student.course)) {
+        reasons.push({
+          criterion: 'Course',
+          required: job.eligibleCourses.join(', '),
+          yours: student.course || 'Not set'
+        });
+      }
+    }
+    // Legacy Semester check
+    if (Array.isArray(job.eligibleSemesters) && job.eligibleSemesters.length > 0) {
+      if (!job.eligibleSemesters.includes(Number(student.semester))) {
+        reasons.push({
+          criterion: 'Semester',
+          required: job.eligibleSemesters.join(', '),
+          yours: student.semester || 'Not set'
+        });
+      }
     }
   }
 
@@ -32,18 +67,7 @@ const runEligibilityCheck = (job, student) => {
     }
   }
 
-  // 3. Year check
-  if (Array.isArray(job.eligibleYears) && job.eligibleYears.length > 0) {
-    if (!job.eligibleYears.includes(student.year)) {
-      reasons.push({
-        criterion: 'Year',
-        required: job.eligibleYears.join(', '),
-        yours: student.year || 'Not set'
-      });
-    }
-  }
-
-  // 4. CGPA check
+  // 3. CGPA check
   const minCgpa = typeof job.minCgpa === 'number' ? job.minCgpa : 0;
   if (minCgpa > 0) {
     const studentCgpa = typeof student.cgpa === 'number' ? student.cgpa : 0;
@@ -90,7 +114,7 @@ exports.getApplications = async (req, res) => {
 
     const applications = await Application.find(filter)
       .populate('job', 'position title companyName campusType location')
-      .populate('student', 'name email contact course year branch resume')
+      .populate('student', 'name email contact course semester branch resume')
       .sort({ appliedAt: -1 });
 
     return res.json(applications);
@@ -165,7 +189,7 @@ exports.submitApplication = async (req, res) => {
       applicantEmail: applicantData?.applicantEmail,
       applicantPhone: applicantData?.applicantPhone || student.contact,
       applicantCourse: applicantData?.applicantCourse || student.course,
-      applicantYear: applicantData?.applicantYear || student.year,
+      applicantSemester: applicantData?.applicantSemester || student.semester,
       applicantBranch: applicantData?.applicantBranch || student.branch,
       formResponses
     });
@@ -175,7 +199,7 @@ exports.submitApplication = async (req, res) => {
     // Populate the saved application for response
     const populatedApplication = await Application.findById(application._id)
       .populate('job', 'position companyName')
-      .populate('student', 'firstName lastName course year branch');
+      .populate('student', 'firstName lastName course semester branch');
     
     res.status(201).json({
       success: true,
@@ -214,7 +238,7 @@ exports.checkEligibility = async (req, res) => {
         criteria: {
           eligibleCourses: job.eligibleCourses || [],
           eligibleBranches: job.eligibleBranches || [],
-          eligibleYears: job.eligibleYears || [],
+          eligibleSemesters: job.eligibleSemesters || [],
           minCgpa: job.minCgpa || 0
         }
       });
@@ -226,13 +250,13 @@ exports.checkEligibility = async (req, res) => {
       studentProfile: {
         course: student.course,
         branch: student.branch,
-        year: student.year,
+        semester: student.semester,
         cgpa: student.cgpa
       },
       criteria: {
         eligibleCourses: job.eligibleCourses || [],
         eligibleBranches: job.eligibleBranches || [],
-        eligibleYears: job.eligibleYears || [],
+        eligibleSemesters: job.eligibleSemesters || [],
         minCgpa: job.minCgpa || 0
       }
     });
@@ -249,7 +273,7 @@ exports.getJobApplications = async (req, res) => {
     
     const applications = await Application.find({ job: jobId })
       .populate('job', 'position title companyName campusType location')
-      .populate('student', 'name email phone course year branch resume')
+      .populate('student', 'name email phone course semester branch resume')
       .sort({ appliedAt: -1 });
     
     res.json(applications);
@@ -264,7 +288,7 @@ exports.getAllApplications = async (req, res) => {
   try {
     const applications = await Application.find()
       .populate('job', 'position title companyName campusType location')
-      .populate('student', 'name email phone course year branch resume')
+      .populate('student', 'name email phone course semester branch resume')
       .sort({ appliedAt: -1 });
     
     res.json(applications);
@@ -292,7 +316,7 @@ exports.updateApplicationStatus = async (req, res) => {
       { new: true }
     )
     .populate('job', 'position title companyName campusType location')
-    .populate('student', 'name email phone course year branch resume');
+    .populate('student', 'name email phone course semester branch resume');
     
     if (!application) {
       return res.status(404).json({ error: 'Application not found' });
@@ -452,7 +476,7 @@ exports.getApplicationById = async (req, res) => {
     
     const application = await Application.findById(applicationId)
       .populate('job', 'title company description requirements')
-      .populate('student', 'name email phone course year branch resume');
+      .populate('student', 'name email phone course semester branch resume');
     
     if (!application) {
       return res.status(404).json({ error: 'Application not found' });
@@ -488,7 +512,7 @@ exports.exportApplicationsExcel = async (req, res) => {
     // Fetch all applications with related job and student data
     const applications = await Application.find()
       .populate('job', 'position companyName')
-      .populate('student', 'course year branch resume')
+      .populate('student', 'course semester branch resume')
       .sort({ appliedAt: -1 });
 
     // Create workbook and worksheet
@@ -500,7 +524,7 @@ exports.exportApplicationsExcel = async (req, res) => {
       { header: 'Student Name', key: 'studentName', width: 28 },
       { header: 'Student Email', key: 'studentEmail', width: 30 },
       { header: 'Course', key: 'course', width: 16 },
-      { header: 'Year', key: 'year', width: 10 },
+      { header: 'Semester', key: 'semester', width: 12 },
       { header: 'Branch', key: 'branch', width: 14 },
       { header: 'Resume Path', key: 'resume', width: 40 },
       { header: 'Job Title / Position', key: 'position', width: 28 },
@@ -517,7 +541,7 @@ exports.exportApplicationsExcel = async (req, res) => {
         studentName: app.applicantName || (app.student && app.student.name) || '',
         studentEmail: app.applicantEmail || (app.student && app.student.email) || '',
         course: app.applicantCourse || (app.student && app.student.course) || '',
-        year: app.applicantYear || (app.student && app.student.year) || '',
+        semester: app.applicantSemester || (app.student && app.student.semester) || '',
         branch: app.applicantBranch || (app.student && app.student.branch) || '',
         resume: app.resume || (app.student && app.student.resume) || '',
         position: app.job && (app.job.title || app.job.position) ? (app.job.title || app.job.position) : '',

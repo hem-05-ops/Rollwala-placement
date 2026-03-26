@@ -1,9 +1,25 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { User, Mail, Lock, Phone, GraduationCap, BookOpen, Users, Eye, EyeOff } from 'lucide-react';
+import { User, Mail, Lock, Phone, GraduationCap, BookOpen, Users, Eye, EyeOff, Calendar } from 'lucide-react';
 import Header from './Header';
 import Footer from './Footer';
+
+const COURSES = ['BSc.CS', 'MSc.CS', 'MSc.AIML', 'MCA'];
+const BRANCHES = ['WD', 'AIML'];
+const TRACKS = ['.NET', 'Java', 'Data Science', 'Python', 'Web Development', 'Other'];
+
+const getSemestersByCourse = (course) => {
+  if (!course) return [];
+  const normalizedCourse = course.trim();
+  switch (normalizedCourse) {
+    case 'MSc.CS': return [1, 2, 3, 4];
+    case 'MCA':
+    case 'MSc.AIML': return [1, 2, 3, 4];
+    case 'BSc.CS': return [1, 2, 3, 4, 5, 6];
+    default: return [];
+  }
+};
 
 const StudentRegister = () => {
   const [formData, setFormData] = useState({
@@ -14,8 +30,7 @@ const StudentRegister = () => {
     confirmPassword: '',
     rollNo: '',
     course: '',
-    branch: '',
-    year: '',
+    semester: '',
     track: '',
     cgpa: '',
     contact: ''
@@ -27,28 +42,22 @@ const StudentRegister = () => {
   const navigate = useNavigate();
 
   const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-  const courses = ['BSc.CS', 'MSc.CS', 'MSc.AIML', 'MCA'];
-  const branches = ['WD', 'AIML'];
-  const years = ['1st', '2nd', '3rd', '4th', '5th'];
-  const tracks = ['.NET', 'Java', 'Data Science', 'Python', 'Web Development', 'Other'];
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    setError('');
+    
     setFormData(prev => {
-      const updatedValue = name === 'cgpa' ? parseFloat(value) || '' : value;
-      const updated = {
-        ...prev,
-        [name]: updatedValue
-      };
-
-      // If course changes away from MSc.CS, clear branch
-      if (name === 'course' && value !== 'MSc.CS') {
-        updated.branch = '';
+      const updated = { ...prev, [name]: value };
+      
+      if (name === 'course') {
+        updated.semester = ''; // Reset semester on course change
+        if (value !== 'MSc.CS') {
+          updated.branch = ''; // Reset branch if not MSc.CS
+        }
       }
-
       return updated;
     });
-    setError('');
   };
 
   const handleSubmit = async (e) => {
@@ -92,10 +101,9 @@ const StudentRegister = () => {
           confirmPassword: formData.confirmPassword,
           rollNo: formData.rollNo,
           course: formData.course,
-          branch: formData.branch,
-          year: formData.year,
+          branch: formData.branch || undefined,
+          semester: parseInt(formData.semester),
           track: formData.track || undefined,
-          // cgpa: parseFloat(formData.cgpa), // CGPA temporarily disabled
           contact: formData.contact
         }),
       });
@@ -312,16 +320,21 @@ const StudentRegister = () => {
                   <label htmlFor="rollNo" className="block text-sm font-medium text-gray-700 mb-1">
                     Roll Number
                   </label>
-                  <input
-                    id="rollNo"
-                    name="rollNo"
-                    type="text"
-                    required
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500"
-                    placeholder="Enter your roll number"
-                    value={formData.rollNo}
-                    onChange={handleChange}
-                  />
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <GraduationCap className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      id="rollNo"
+                      name="rollNo"
+                      type="text"
+                      required
+                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500"
+                      placeholder="Enter your roll number"
+                      value={formData.rollNo}
+                      onChange={handleChange}
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -341,7 +354,7 @@ const StudentRegister = () => {
                       onChange={handleChange}
                     >
                       <option value="">Select your course</option>
-                      {courses.map(course => (
+                      {COURSES.map(course => (
                         <option key={course} value={course}>{course}</option>
                       ))}
                     </select>
@@ -366,7 +379,7 @@ const StudentRegister = () => {
                         onChange={handleChange}
                       >
                         <option value="">Select your branch</option>
-                        {branches.map(branch => (
+                        {BRANCHES.map(branch => (
                           <option key={branch} value={branch}>{branch}</option>
                         ))}
                       </select>
@@ -375,22 +388,28 @@ const StudentRegister = () => {
                 )}
 
                 <div>
-                  <label htmlFor="year" className="block text-sm font-medium text-gray-700 mb-1">
-                    Year
+                  <label htmlFor="semester" className="block text-sm font-medium text-gray-700 mb-1">
+                    Semester
                   </label>
-                  <select
-                    id="year"
-                    name="year"
-                    required
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500"
-                    value={formData.year}
-                    onChange={handleChange}
-                  >
-                    <option value="">Select your year</option>
-                    {years.map(year => (
-                      <option key={year} value={year}>{year}</option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Calendar className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <select
+                      key={formData.course || 'no-course'}
+                      id="semester"
+                      name="semester"
+                      required
+                      className={`block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500 ${!formData.course ? 'bg-gray-50' : 'bg-white'}`}
+                      value={formData.semester}
+                      onChange={handleChange}
+                    >
+                      <option value="">{formData.course ? 'Select your semester' : 'Select a course first'}</option>
+                      {getSemestersByCourse(formData.course).map(sem => (
+                        <option key={sem} value={String(sem)}>Semester {sem}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 {/* CGPA input temporarily disabled */}
@@ -400,18 +419,23 @@ const StudentRegister = () => {
                   <label htmlFor="track" className="block text-sm font-medium text-gray-700 mb-1">
                     Technology Track
                   </label>
-                  <select
-                    id="track"
-                    name="track"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500"
-                    value={formData.track}
-                    onChange={handleChange}
-                  >
-                    <option value="">Select your track (optional)</option>
-                    {tracks.map(track => (
-                      <option key={track} value={track}>{track}</option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <BookOpen className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <select
+                      id="track"
+                      name="track"
+                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500"
+                      value={formData.track}
+                      onChange={handleChange}
+                    >
+                      <option value="">Select your track (optional)</option>
+                      {TRACKS.map(track => (
+                        <option key={track} value={track}>{track}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>

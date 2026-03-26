@@ -9,7 +9,8 @@ const studentSchema = new mongoose.Schema({
   // Branch is only required at business logic level for MSc.CS; allow null/undefined in DB
   branch: { type: String, enum: ['WD', 'AIML'], required: false },
   track: { type: String, enum: ['.NET', 'Java', 'Data Science', 'Python', 'Web Development', 'Other'], required: false },
-  year: { type: String, required: true, enum: ['1st', '2nd', '3rd', '4th', '5th'] },
+  semester: { type: Number, required: true, min: 1, max: 10 },
+  year: { type: String, enum: ['1st', '2nd', '3rd', '4th', '5th'], required: false },
   // CGPA can be filled later; default to 0
   cgpa: { type: Number, min: 0, max: 10, default: 0, required: false },
   resume: { type: String },
@@ -25,7 +26,7 @@ const studentSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Add a pre-save hook to handle updates without required fields
-studentSchema.pre('findOneAndUpdate', function(next) {
+studentSchema.pre('findOneAndUpdate', function (next) {
   this.options.runValidators = false; // Disable validation for updates
   next();
 });

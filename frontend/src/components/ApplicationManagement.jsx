@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { api } from '../lib/apiService';
 import AdminHeader from './AdminHeader';
 import * as XLSX from 'xlsx';
@@ -12,6 +12,8 @@ const ApplicationManagement = () => {
   const [success, setSuccess] = useState('');
   const [selectedJob, setSelectedJob] = useState('all');
   const [jobs, setJobs] = useState([]);
+  const [filterCourse, setFilterCourse] = useState('all');
+  const [filterSemester, setFilterSemester] = useState('all');
   const [stats, setStats] = useState({
     totalApplications: 0,
     statusBreakdown: []
@@ -21,6 +23,15 @@ const ApplicationManagement = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const listTopRef = useRef(null);
+
+  const COURSES = ['BSc.CS', 'MSc.CS', 'MSc.AIML', 'MCA'];
+  const SEMESTERS_BY_COURSE = {
+    'BSc.CS': [1, 2, 3, 4, 5, 6],
+    'MSc.CS': [1, 2, 3, 4],
+    'MSc.AIML': [1, 2, 3, 4],
+    'MCA': [1, 2, 3, 4]
+  };
+  const semesterOptions = filterCourse !== 'all' ? (SEMESTERS_BY_COURSE[filterCourse] || []) : [];
 
   // Fetch all applications
   const fetchApplications = async () => {
@@ -84,8 +95,8 @@ const ApplicationManagement = () => {
     try {
       setExporting(true);
       
-      // Prepare data for export
-      const dataToExport = applications.map(app => {
+      // Prepare data for export — use filtered data (by job/course/semester)
+      const dataToExport = filteredApplications.map(app => {
         // Resolve job information from populated object or fallback to jobs list by id
         const jobRef = app.job;
         let jobInfo = null;
@@ -113,7 +124,7 @@ const ApplicationManagement = () => {
           'Email': app.applicantEmail || 'N/A',
           'Phone': app.applicantPhone || 'N/A',
           'Course': app.applicantCourse || 'N/A',
-          'Year': app.applicantYear || 'N/A',
+          'Semester': app.applicantSemester || 'N/A',
           'Track': app.applicantBranch || 'N/A',
           'Resume Path': app.resume || (app.student?.resume || ''),
           'Status': app.status || 'pending',
@@ -210,9 +221,20 @@ const ApplicationManagement = () => {
 
   // Fetch applications when selectedJob changes
   useEffect(() => {
-    setCurrentPage(1); // reset page on filter change
+    setCurrentPage(1);
     fetchApplications();
   }, [selectedJob]);
+
+  // Reset semester when course changes
+  useEffect(() => {
+    setFilterSemester('all');
+    setCurrentPage(1);
+  }, [filterCourse]);
+
+  // Reset page when course/semester filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterSemester]);
 
   // Clear messages when they exist
   useEffect(() => {
@@ -222,17 +244,25 @@ const ApplicationManagement = () => {
     }
   }, [error, success]);
 
+  // Derived: apply course + semester filters client-side (computed before pagination clamp)
+  const filteredApplications = useMemo(() => {
+    return applications.filter(app => {
+      const courseMatch = filterCourse === 'all' || app.applicantCourse === filterCourse;
+      const semesterMatch = filterSemester === 'all' || String(app.applicantSemester) === String(filterSemester);
+      return courseMatch && semesterMatch;
+    });
+  }, [applications, filterCourse, filterSemester]);
+
   // Clamp current page if data size changes
   useEffect(() => {
-    const maxPage = Math.max(1, Math.ceil(applications.length / pageSize));
+    const maxPage = Math.max(1, Math.ceil(filteredApplications.length / pageSize));
     if (currentPage > maxPage) setCurrentPage(maxPage);
-  }, [applications, pageSize, currentPage]);
+  }, [filteredApplications, pageSize, currentPage]);
 
-  // Derived pagination values
-  const totalPages = Math.max(1, Math.ceil(applications.length / pageSize));
-  const paginatedApplications = applications.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const totalPages = Math.max(1, Math.ceil(filteredApplications.length / pageSize));
+  const paginatedApplications = filteredApplications.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const startIndex = (currentPage - 1) * pageSize + 1;
-  const endIndex = Math.min(currentPage * pageSize, applications.length);
+  const endIndex = Math.min(currentPage * pageSize, filteredApplications.length);
 
   // Scroll to top of list on page change
   useEffect(() => {
@@ -262,7 +292,7 @@ const ApplicationManagement = () => {
         <div className="header-actions">
           <button 
             onClick={exportToExcel} 
-            disabled={exporting || applications.length === 0}
+            disabled={exporting || filteredApplications.length === 0}
             className="export-btn"
           >
             {exporting ? 'Exporting...' : '📊 Export to Excel'}
@@ -296,24 +326,64 @@ const ApplicationManagement = () => {
       )}
 
       <div className="filter-section">
-        <label htmlFor="job-filter">Filter by Job:</label>
-        <select
-          id="job-filter"
-          value={selectedJob}
-          onChange={(e) => setSelectedJob(e.target.value)}
-        >
-          <option value="all">All Jobs</option>
-          {jobs.map((job) => (
-            <option key={job._id} value={job._id}>
-              {job.position} - {job.companyName}
-            </option>
-          ))}
-        </select>
+        <div className="filter-group">
+          <label htmlFor="job-filter">Filter by Job:</label>
+          <select
+            id="job-filter"
+            value={selectedJob}
+            onChange={(e) => setSelectedJob(e.target.value)}
+          >
+            <option value="all">All Jobs</option>
+            {jobs.map((job) => (
+              <option key={job._id} value={job._id}>
+                {job.position} - {job.companyName}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="filter-group">
+          <label htmlFor="course-filter">Course:</label>
+          <select
+            id="course-filter"
+            value={filterCourse}
+            onChange={(e) => setFilterCourse(e.target.value)}
+          >
+            <option value="all">All Courses</option>
+            {COURSES.map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="filter-group">
+          <label htmlFor="semester-filter">Semester:</label>
+          <select
+            id="semester-filter"
+            value={filterSemester}
+            onChange={(e) => setFilterSemester(e.target.value)}
+            disabled={filterCourse === 'all'}
+          >
+            <option value="all">{filterCourse === 'all' ? 'Select Course First' : 'All Semesters'}</option>
+            {semesterOptions.map(s => (
+              <option key={s} value={s}>Semester {s}</option>
+            ))}
+          </select>
+        </div>
+
+        {(filterCourse !== 'all' || filterSemester !== 'all') && (
+          <button
+            className="clear-filters-btn"
+            onClick={() => { setFilterCourse('all'); setFilterSemester('all'); }}
+          >
+            ✕ Clear Filters
+          </button>
+        )}
       </div>
 
       <div className="applications-list" ref={listTopRef}>
         <div className="applications-header-row">
-          <h2>Applications ({applications.length})</h2>
+          <h2>Applications ({filteredApplications.length}{filteredApplications.length !== applications.length ? ` of ${applications.length}` : ''})</h2>
           <div className="list-controls">
             <label className="page-size">
               Show
@@ -328,7 +398,7 @@ const ApplicationManagement = () => {
           </div>
         </div>
         <div className="pagination-top">
-          <span className="range">{applications.length ? `${startIndex}-${endIndex} of ${applications.length}` : '0 of 0'}</span>
+          <span className="range">{filteredApplications.length ? `${startIndex}-${endIndex} of ${filteredApplications.length}` : '0 of 0'}</span>
           <div className="pagination">
             <button className="page-btn" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Prev</button>
             {Array.from({ length: totalPages }, (_, i) => i + 1).slice(Math.max(0, currentPage - 3), Math.min(totalPages, currentPage + 2)).map(n => (
@@ -338,9 +408,9 @@ const ApplicationManagement = () => {
           </div>
         </div>
         
-        {applications.length === 0 ? (
+        {filteredApplications.length === 0 ? (
           <div className="no-applications">
-            <p>No applications found for the selected criteria.</p>
+            <p>{applications.length === 0 ? 'No applications found.' : 'No applications match the selected filters.'}</p>
           </div>
         ) : (
           <div className="applications-grid">
@@ -368,8 +438,8 @@ const ApplicationManagement = () => {
                     <span className="detail-value">{application.applicantCourse || 'N/A'}</span>
                   </div>
                   <div className="detail-row">
-                    <span className="detail-label">Year:</span>
-                    <span className="detail-value">{application.applicantYear || 'N/A'}</span>
+                    <span className="detail-label">Semester:</span>
+                    <span className="detail-value">{application.applicantSemester || 'N/A'}</span>
                   </div>
                   <div className="detail-row">
                     <span className="detail-label">Track:</span>
@@ -477,7 +547,7 @@ const ApplicationManagement = () => {
         )}
 
         <div className="pagination-bottom">
-          <span className="range">{applications.length ? `${startIndex}-${endIndex} of ${applications.length}` : '0 of 0'}</span>
+          <span className="range">{filteredApplications.length ? `${startIndex}-${endIndex} of ${filteredApplications.length}` : '0 of 0'}</span>
           <div className="pagination">
             <button className="page-btn" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Prev</button>
             {Array.from({ length: totalPages }, (_, i) => i + 1).slice(Math.max(0, currentPage - 3), Math.min(totalPages, currentPage + 2)).map(n => (

@@ -13,6 +13,7 @@ const applicationSchema = new mongoose.Schema({
         applicantEmail: { type: String, required: true },
         applicantPhone: { type: String },
         applicantCourse: { type: String },
+        applicantSemester: { type: Number },
         applicantYear: { type: String },
         applicantBranch: { type: String },
         resume: { type: String },
