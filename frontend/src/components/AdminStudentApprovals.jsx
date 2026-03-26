@@ -90,7 +90,7 @@ const AdminStudentApprovals = () => {
                       <span className="user-role">Student</span>
                       <span className="user-joined">Course: {student.course}</span>
                       <span className="user-joined">Branch: {student.branch}</span>
-                      <span className="user-joined">Year: {student.year}</span>
+                      <span className="user-joined">Semester: {student.semester}</span>
                       <span className="user-joined">Roll No: {student.rollNo}</span>
                     </div>
                   </div>

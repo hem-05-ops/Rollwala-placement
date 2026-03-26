@@ -101,6 +101,49 @@
   border-color: #667eea;
 }
 
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-group label {
+  white-space: nowrap;
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 1rem;
+  margin: 0;
+}
+
+.filter-group select {
+  min-width: 160px;
+}
+
+.filter-group select:disabled {
+  background: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.clear-filters-btn {
+  padding: 8px 14px;
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+  white-space: nowrap;
+}
+
+.clear-filters-btn:hover {
+  background: #fecaca;
+  border-color: #dc2626;
+}
+
+
 .applications-list {
   background: white;
   padding: 30px;

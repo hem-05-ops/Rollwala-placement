@@ -21,9 +21,14 @@ const jobSchema = new mongoose.Schema({
   driveDate: String,
   additionalInfo: String,
   eligibleCourses: [String],
+  eligibleSemesters: [Number],
   eligibleYears: [String],
   eligibleBranches: [String],
   eligibleTracks: [String],
+  courseEligibility: [{
+    course: String,
+    semesters: [Number]
+  }],
   minCgpa: { type: Number, default: 0, min: 0, max: 10 },
 }, { timestamps: true });
 

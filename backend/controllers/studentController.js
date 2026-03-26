@@ -27,7 +27,7 @@ const studentRegisterSchema = z.object({
   course: z.enum(['BSc.CS', 'MSc.CS', 'MSc.AIML', 'MCA']),
   // Track (branch) is required only for MSc.CS, optional otherwise
   branch: z.enum(['WD', 'AIML']).optional(),
-  year: z.enum(['1st', '2nd', '3rd', '4th', '5th']),
+  semester: z.number().min(1).max(10),
   // Technology track (e.g. Java, .NET, Data Science)
   track: z.enum(['.NET', 'Java', 'Data Science', 'Python', 'Web Development', 'Other']).optional(),
   // CGPA made optional for now
@@ -79,6 +79,18 @@ exports.registerStudent = async (req, res) => {
     const saltRounds = 10;
     const passwordHash = await bcrypt.hash(payload.password, saltRounds);
 
+    // Automatically calculate 'year' from 'semester' for backward compatibility
+    let calculatedYear = '';
+    const sem = payload.semester;
+    if (payload.course === 'MSc.CS') {
+      if (sem <= 2) calculatedYear = '1st';
+      else calculatedYear = '2nd';
+    } else {
+      if (sem <= 2) calculatedYear = '1st';
+      else if (sem <= 4) calculatedYear = '2nd';
+      else if (sem <= 6) calculatedYear = '3rd';
+    }
+
     // Create user (User schema requires 'name')
     const fullName = `${payload.firstName} ${payload.lastName}`.trim();
     const user = await User.create({
@@ -99,7 +111,8 @@ exports.registerStudent = async (req, res) => {
       course: payload.course,
       branch: payload.branch || undefined,
       track: payload.track || undefined,
-      year: payload.year,
+      semester: payload.semester,
+      year: calculatedYear,
       cgpa: payload.cgpa ?? 0,
       contact: payload.contact
     });
@@ -120,18 +133,18 @@ exports.registerStudent = async (req, res) => {
     });
   } catch (err) {
     console.error('Registration error:', err);
-    
+
     // If user was created but student failed, delete the user
     if (err.name === 'MongoError' && err.code === 11000) {
       // Handle duplicate key error
       await User.deleteOne({ email: req.body.email });
       return res.status(409).json({ error: 'Roll number or email already exists' });
     }
-    
+
     if (err instanceof z.ZodError) {
       return res.status(400).json({ error: 'Validation failed', details: err.flatten() });
     }
-    
+
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
@@ -142,22 +155,22 @@ exports.registerStudent = async (req, res) => {
 // Create missing student profile
 exports.createStudentProfile = async (req, res) => {
   try {
-    const { rollNo, course, branch, year, cgpa, contact } = req.body;
-    
+    const { rollNo, course, branch, semester, cgpa, contact } = req.body;
+
     console.log('Creating student profile for user:', req.user.id);
-    
+
     // Check if student profile already exists
     const existingStudent = await Student.findOne({ user: req.user.id });
     if (existingStudent) {
       return res.status(409).json({ error: 'Student profile already exists' });
     }
-    
+
     // Get user details to use for the student profile
     const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
+
     // Create new student profile
     const student = await Student.create({
       user: req.user.id,
@@ -166,7 +179,7 @@ exports.createStudentProfile = async (req, res) => {
       rollNo: rollNo || `TEMP-${Date.now()}`,
       course: course || 'BSc.CS',
       branch: branch || 'WD',
-      year: year || '1st',
+      semester: semester || 1,
       cgpa: cgpa || 0,
       contact: contact || 'Not provided',
       skills: [],
@@ -174,21 +187,21 @@ exports.createStudentProfile = async (req, res) => {
       certifications: [],
       achievements: []
     });
-    
+
     const populatedStudent = await Student.findById(student._id)
       .populate('user', 'firstName lastName email role');
-    
+
     console.log('Created student profile:', populatedStudent);
-    
+
     res.status(201).json(populatedStudent);
   } catch (error) {
     console.error('Create profile error:', error);
-    
+
     // Handle duplicate roll number error
     if (error.code === 11000 && error.keyPattern && error.keyPattern.rollNo) {
       return res.status(409).json({ error: 'Roll number already exists' });
     }
-    
+
     res.status(500).json({ error: 'Internal server error' });
   }
 };
@@ -196,15 +209,15 @@ exports.createStudentProfile = async (req, res) => {
 exports.getStudentProfile = async (req, res) => {
   try {
     console.log('Fetching profile for user ID:', req.user.id);
-    
+
     const student = await Student.findOne({ user: req.user.id })
       .populate('user', 'firstName lastName email role');
-    
+
     if (!student) {
       console.log('No student profile found for user:', req.user.id);
       return res.status(404).json({ error: 'Student profile not found' });
     }
-    
+
     res.json(student);
   } catch (error) {
     console.error('Get profile error:', error);
@@ -221,11 +234,11 @@ exports.updateStudentProfile = async (req, res) => {
     console.log('=== UPDATE PROFILE REQUEST ===');
     console.log('Authenticated user:', req.user);
     console.log('Request body:', req.body);
-    
+
     // Only allow updates to these fields (exclude required fields)
     const allowedUpdates = ['skills', 'projects', 'certifications', 'achievements', 'linkedin', 'github', 'resume', 'profilePicture'];
     const updates = {};
-    
+
     for (const field of allowedUpdates) {
       if (req.body[field] !== undefined) {
         updates[field] = req.body[field];
@@ -237,7 +250,7 @@ exports.updateStudentProfile = async (req, res) => {
     if (req.body.contact !== undefined) {
       updates.contact = req.body.contact;
     }
-    
+
     if (req.body.cgpa !== undefined) {
       // Validate CGPA range
       if (req.body.cgpa < 0 || req.body.cgpa > 10) {
@@ -262,7 +275,7 @@ exports.updateStudentProfile = async (req, res) => {
 
     // Get the updated student
     const student = await Student.findOne({ user: req.user.id }).populate('user', 'firstName lastName email');
-    
+
     console.log('Profile updated successfully:', student);
     res.json({ message: 'Profile updated successfully', student });
   } catch (error) {
@@ -270,7 +283,7 @@ exports.updateStudentProfile = async (req, res) => {
     console.error('Error name:', error.name);
     console.error('Error message:', error.message);
     console.error('Error stack:', error.stack);
-    
+
     res.status(500).json({ error: 'Internal server error', message: error.message });
   }
 };
@@ -307,17 +320,17 @@ exports.uploadResume = async (req, res) => {
 exports.applyForJob = async (req, res) => {
   try {
     const { jobId, formResponses } = req.body;
-    
+
     // Get student info
     const student = await Student.findOne({ user: req.user.id }).populate('user');
     if (!student) {
       return res.status(404).json({ error: 'Student profile not found' });
     }
 
-    // Allow applications only for 3rd and 5th year students
-    if (!['3rd', '5th'].includes(student.year)) {
-      return res.status(403).json({ error: 'Only 3rd and 5th year students are allowed to apply for jobs.' });
-    }
+    // Note: Year-based hardcoded check removed as it's now handled by dynamic semester eligibility
+    // if (!['3rd', '5th'].includes(student.year)) {
+    //   return res.status(403).json({ error: 'Only 3rd and 5th year students are allowed to apply for jobs.' });
+    // }
 
     // Check if job exists
     const job = await Job.findById(jobId);
@@ -343,7 +356,7 @@ exports.applyForJob = async (req, res) => {
 
     if (selectedApplication) {
       const companyName = selectedApplication.job?.companyName || 'a company';
-      const position   = selectedApplication.job?.position   || 'a position';
+      const position = selectedApplication.job?.position || 'a position';
       return res.status(403).json({
         error: `You have already been selected at ${companyName} for the position of ${position}. Students who have been placed cannot apply to other companies.`
       });
@@ -366,7 +379,7 @@ exports.applyForJob = async (req, res) => {
       applicantEmail: student.user?.email,
       applicantPhone: student.contact,
       applicantCourse: student.course,
-      applicantYear: student.year,
+      applicantSemester: student.semester,
       applicantBranch: student.branch,
       resume: student.resume,
       formResponses: formResponses || []
@@ -411,10 +424,11 @@ exports.getEligibleJobs = async (req, res) => {
       return res.status(404).json({ error: 'Student profile not found' });
     }
 
-    // Only 3rd and 5th year students should see eligible jobs
-    if (!['3rd', '5th'].includes(student.year)) {
-      return res.json([]);
-    }
+    // Logic relies on Job-defined eligibleSemesters. 
+    // If student needs a general block, it should be done based on semester logic.
+    // if (!['3rd', '5th'].includes(student.year)) {
+    //   return res.json([]);
+    // }
 
     // Find jobs that match student's eligibility
     const jobs = await Job.find({
@@ -433,8 +447,8 @@ exports.getEligibleJobs = async (req, res) => {
         },
         {
           $or: [
-            { eligibleYears: { $in: [student.year] } },
-            { eligibleYears: { $size: 0 } }
+            { eligibleSemesters: { $in: [student.semester] } },
+            { eligibleSemesters: { $size: 0 } }
           ]
         },
         {
@@ -465,7 +479,7 @@ exports.getStudentCalendarEvents = async (req, res) => {
     const now = new Date();
 
     // Get student's applications with scheduled interviews
-    const applications = await Application.find({ 
+    const applications = await Application.find({
       student: student._id,
       interviewDate: { $gte: now }
     }).populate('job', 'position companyName location');

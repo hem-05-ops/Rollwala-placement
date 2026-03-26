@@ -66,7 +66,7 @@ const JobCard = ({ job, onClick }) => {
           {/* Eligibility Information Section */}
           <div className="job-eligibility-section">
             {(job.eligibleCourses && job.eligibleCourses.length > 0) ||
-             (job.eligibleYears && job.eligibleYears.length > 0) ||
+             (job.eligibleSemesters && job.eligibleSemesters.length > 0) ||
              (job.eligibleBranches && job.eligibleBranches.length > 0) ? (
               <>
                 {job.eligibleCourses && job.eligibleCourses.length > 0 && (
@@ -80,12 +80,12 @@ const JobCard = ({ job, onClick }) => {
                   </div>
                 )}
                 
-                {job.eligibleYears && job.eligibleYears.length > 0 && (
+                {job.eligibleSemesters && job.eligibleSemesters.length > 0 && (
                   <div className="eligibility-row">
                     <span className="job-eligible-years">
-                      <strong>Years:</strong> {Array.isArray(job.eligibleYears) 
-                        ? job.eligibleYears.join(", ") 
-                        : job.eligibleYears}
+                      <strong>Semesters:</strong> {Array.isArray(job.eligibleSemesters) 
+                        ? job.eligibleSemesters.join(", ") 
+                        : job.eligibleSemesters}
                     </span>
                   </div>
                 )}
@@ -238,12 +238,12 @@ const JobDetails = ({ job, onBack, onApply }) => {
               </div>
             )}
             
-            {job.eligibleYears && job.eligibleYears.length > 0 && (
+            {job.eligibleSemesters && job.eligibleSemesters.length > 0 && (
               <div className="eligibility-item">
-                <strong>Eligible Years:</strong>
+                <strong>Eligible Semesters:</strong>
                 <div className="eligibility-tags">
-                  {(Array.isArray(job.eligibleYears) ? job.eligibleYears : [job.eligibleYears]).map((year, index) => (
-                    <span key={index} className="eligibility-tag year-tag">{year}</span>
+                  {(Array.isArray(job.eligibleSemesters) ? job.eligibleSemesters : [job.eligibleSemesters]).map((sem, index) => (
+                    <span key={index} className="eligibility-tag year-tag">Sem {sem}</span>
                   ))}
                 </div>
               </div>

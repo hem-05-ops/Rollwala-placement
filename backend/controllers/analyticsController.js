@@ -369,11 +369,11 @@ const getUserAnalyticsData = async () => {
       }
     ]);
 
-    // Student distribution by year
-    const studentsByYear = await Student.aggregate([
+    // Student distribution by semester
+    const studentsBySemester = await Student.aggregate([
       {
         $group: {
-          _id: '$year',
+          _id: '$semester',
           count: { $sum: 1 }
         }
       },
@@ -430,8 +430,8 @@ const getUserAnalyticsData = async () => {
         course: stat._id || 'Unknown',
         count: stat.count
       })),
-      studentsByYear: studentsByYear.map(stat => ({
-        year: stat._id || 'Unknown',
+      studentsBySemester: studentsBySemester.map(stat => ({
+        semester: stat._id || 'Unknown',
         count: stat.count
       })),
       studentsByBranch: studentsByBranch.map(stat => ({

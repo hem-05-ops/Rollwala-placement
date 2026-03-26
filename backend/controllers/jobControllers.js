@@ -37,11 +37,11 @@ exports.createJob = async (req, res) => {
       delete jobData['eligibleBranches[]'];
     }
     
-    if (jobData['eligibleYears[]']) {
-      jobData.eligibleYears = Array.isArray(jobData['eligibleYears[]']) 
-        ? jobData['eligibleYears[]'] 
-        : [jobData['eligibleYears[]']];
-      delete jobData['eligibleYears[]'];
+    if (jobData['eligibleSemesters[]']) {
+      jobData.eligibleSemesters = Array.isArray(jobData['eligibleSemesters[]']) 
+        ? jobData['eligibleSemesters[]'].map(Number)
+        : [Number(jobData['eligibleSemesters[]'])];
+      delete jobData['eligibleSemesters[]'];
     }
 
     if (jobData['eligibleTracks[]']) {
@@ -54,11 +54,21 @@ exports.createJob = async (req, res) => {
     // Ensure arrays exist even if empty
     if (!jobData.eligibleCourses) jobData.eligibleCourses = [];
     if (!jobData.eligibleBranches) jobData.eligibleBranches = [];
-    if (!jobData.eligibleYears) jobData.eligibleYears = [];
+    if (!jobData.eligibleSemesters) jobData.eligibleSemesters = [];
     if (!jobData.eligibleTracks) jobData.eligibleTracks = [];
 
     // Parse minCgpa (comes as string from FormData)
     jobData.minCgpa = Math.min(10, Math.max(0, parseFloat(jobData.minCgpa) || 0));
+
+    // Parse courseEligibility (comes as JSON string from FormData)
+    if (typeof jobData.courseEligibility === 'string') {
+      try {
+        jobData.courseEligibility = JSON.parse(jobData.courseEligibility);
+      } catch (e) {
+        console.error('Error parsing courseEligibility:', e);
+        jobData.courseEligibility = [];
+      }
+    }
     
     // Normalize optional multi-fields (forward compat)
     if (jobData['jobTypes[]']) {
@@ -122,11 +132,11 @@ exports.createJob = async (req, res) => {
         const totalStudents = await Student.countDocuments({});
         const distinctCourses = await Student.distinct('course');
         const distinctBranches = await Student.distinct('branch');
-        const distinctYears = await Student.distinct('year');
+        const distinctSemesters = await Student.distinct('semester');
         console.log(`[notify] Total students: ${totalStudents}`);
         console.log(`[notify] Distinct courses: ${JSON.stringify(distinctCourses)}`);
         console.log(`[notify] Distinct branches: ${JSON.stringify(distinctBranches)}`);
-        console.log(`[notify] Distinct years: ${JSON.stringify(distinctYears)}`);
+        console.log(`[notify] Distinct semesters: ${JSON.stringify(distinctSemesters)}`);
 
         const criteria = {};
         if (Array.isArray(job.eligibleCourses) && job.eligibleCourses.length > 0) {
@@ -138,25 +148,16 @@ exports.createJob = async (req, res) => {
         if (Array.isArray(job.eligibleTracks) && job.eligibleTracks.length > 0) {
           criteria.track = { $in: job.eligibleTracks };
         }
-        let yearFilterApplied = false;
-        let providedYears = Array.isArray(job.eligibleYears) ? job.eligibleYears : [];
-        if (providedYears.length > 0) {
-          const allowedYears = ['1st', '2nd', '3rd', '4th', '5th'];
-          const normalizedYears = providedYears.filter((y) => allowedYears.includes(y));
-          if (normalizedYears.length > 0) {
-            criteria.year = { $in: normalizedYears };
-            yearFilterApplied = true;
-          }
+        let semesterFilterApplied = false;
+        let providedSemesters = Array.isArray(job.eligibleSemesters) ? job.eligibleSemesters : [];
+        if (providedSemesters.length > 0) {
+          criteria.semester = { $in: providedSemesters.map(Number) };
+          semesterFilterApplied = true;
         }
 
         console.log('[notify] Eligibility criteria:', JSON.stringify(criteria));
         let students = await Student.find(criteria).populate('user', 'email');
-        // Fallback: if no match AND a non-standard year (e.g., 2026) was provided, retry without year filter
-        if (students.length === 0 && providedYears.length > 0 && !yearFilterApplied) {
-          const { year, ...withoutYear } = criteria;
-          console.log('[notify] No students matched with provided years. Retrying without year filter...');
-          students = await Student.find(withoutYear).populate('user', 'email');
-        }
+        // Fallback removed as semester numbers are standard
         console.log(`[notify] Matched students: ${students.length}`);
         const emails = students
           .map((s) => (s.user && s.user.email ? s.user.email : null))
@@ -211,7 +212,7 @@ exports.createJob = async (req, res) => {
                   <ul>
                     ${job.eligibleCourses && job.eligibleCourses.length > 0 ? `<li>Courses: ${job.eligibleCourses.join(', ')}</li>` : ''}
                     ${job.eligibleBranches && job.eligibleBranches.length > 0 ? `<li>Branches: ${job.eligibleBranches.join(', ')}</li>` : ''}
-                    ${job.eligibleYears && job.eligibleYears.length > 0 ? `<li>Years: ${job.eligibleYears.join(', ')}</li>` : ''}
+                    ${job.eligibleSemesters && job.eligibleSemesters.length > 0 ? `<li>Semesters: ${job.eligibleSemesters.join(', ')}</li>` : ''}
                   </ul>
                 </div>
                 <div class="footer">
@@ -282,11 +283,11 @@ exports.updateJob = async (req, res) => {
       delete jobData['eligibleBranches[]'];
     }
     
-    if (jobData['eligibleYears[]']) {
-      jobData.eligibleYears = Array.isArray(jobData['eligibleYears[]']) 
-        ? jobData['eligibleYears[]'] 
-        : [jobData['eligibleYears[]']];
-      delete jobData['eligibleYears[]'];
+    if (jobData['eligibleSemesters[]']) {
+      jobData.eligibleSemesters = Array.isArray(jobData['eligibleSemesters[]']) 
+        ? jobData['eligibleSemesters[]'].map(Number)
+        : [Number(jobData['eligibleSemesters[]'])];
+      delete jobData['eligibleSemesters[]'];
     }
 
     if (jobData['eligibleTracks[]']) {
@@ -299,11 +300,21 @@ exports.updateJob = async (req, res) => {
     // Ensure arrays exist even if empty
     if (!jobData.eligibleCourses) jobData.eligibleCourses = [];
     if (!jobData.eligibleBranches) jobData.eligibleBranches = [];
-    if (!jobData.eligibleYears) jobData.eligibleYears = [];
+    if (!jobData.eligibleSemesters) jobData.eligibleSemesters = [];
     if (!jobData.eligibleTracks) jobData.eligibleTracks = [];
 
     // Parse minCgpa (comes as string from FormData)
     jobData.minCgpa = Math.min(10, Math.max(0, parseFloat(jobData.minCgpa) || 0));
+
+    // Parse courseEligibility (comes as JSON string from FormData)
+    if (typeof jobData.courseEligibility === 'string') {
+      try {
+        jobData.courseEligibility = JSON.parse(jobData.courseEligibility);
+      } catch (e) {
+        console.error('Error parsing courseEligibility for update:', e);
+        jobData.courseEligibility = [];
+      }
+    }
     
     // Handle file uploads for update - normalize req.files when using multer.any()
     let files = req.files || {};
