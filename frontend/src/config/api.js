@@ -9,6 +9,7 @@ export const API_ENDPOINTS = {
   ADMIN: `${API_BASE_URL}/api/admin`,
   ADMIN_MANAGEMENT: `${API_BASE_URL}/api/admin-management`,
   AUTH: `${API_BASE_URL}/api/auth`,
+  PRACTICE: `${API_BASE_URL}/api/practice`,
 };
 
 export default API_BASE_URL;
