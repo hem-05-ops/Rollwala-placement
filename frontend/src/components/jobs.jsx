@@ -17,6 +17,7 @@ const getCompanyLogoUrl = (logoPath) => {
   // Plain filename -> assume it lives under assets/faculties
   return `${API_ENDPOINTS.UPLOADS}/assets/faculties/${logoPath}`;
 };
+
 // JobCard Component
 const JobCard = ({ job, onClick }) => {
   console.log('Job data in JobCard:', job); // Debug log
@@ -135,7 +136,6 @@ const JobCard = ({ job, onClick }) => {
   );
 };
 
-
 // JobDetails Component
 const JobDetails = ({ job, onBack, onApply }) => {
   const [eligibility, setEligibility] = useState(null);
@@ -198,7 +198,8 @@ const JobDetails = ({ job, onBack, onApply }) => {
       <button className="back-button" onClick={onBack}>
         <span className="back-arrow">←</span> Back to Jobs
       </button>
-      <div className="job-details-header">        <img 
+      <div className="job-details-header">
+        <img 
           src={logoUrl} 
           alt={`${job.companyName} logo`} 
           className="details-logo"
@@ -209,7 +210,8 @@ const JobDetails = ({ job, onBack, onApply }) => {
         />
         <div className="header-content">
           <h1>{job.position}</h1>
-          <h2>{job.companyName}</h2>          <div className="job-meta" style={{ display: 'flex', gap: '20px', alignItems: 'center', marginTop: '10px' }}>
+          <h2>{job.companyName}</h2>
+          <div className="job-meta" style={{ display: 'flex', gap: '20px', alignItems: 'center', marginTop: '10px' }}>
             <span className="meta-item location" style={{ display: 'flex', alignItems: 'center' }}>
               <MapPin size={18} style={{ marginRight: '6px' }} />
               {job.location}
@@ -224,7 +226,9 @@ const JobDetails = ({ job, onBack, onApply }) => {
             </span>
           </div>
         </div>
-      </div><div className="job-details-content">        <div className="job-section">
+      </div>
+      <div className="job-details-content">
+        <div className="job-section">
           <h3>Eligibility Criteria</h3>
           <div className="eligibility-grid">
             {job.eligibleCourses && job.eligibleCourses.length > 0 && (
@@ -276,7 +280,8 @@ const JobDetails = ({ job, onBack, onApply }) => {
         <div className="job-section">
           <h3>Job Description</h3>
           <p>{job.jobDescription || 'No job description provided.'}</p>
-        </div>        <div className="job-section">
+        </div>
+        <div className="job-section">
           <h3>Requirements</h3>
           <ul className="requirements-list">
             <li className="requirement-item">
@@ -383,12 +388,66 @@ const JobDetails = ({ job, onBack, onApply }) => {
   );
 };
 
+// Pagination Component
+const Pagination = ({ currentPage, totalPages, paginate }) => {
+  const pageNumbers = [];
+  
+  // Generate page numbers
+  for (let i = 1; i <= totalPages; i++) {
+    pageNumbers.push(i);
+  }
+
+  return (
+    <div className="pagination-container">
+      <div className="pagination-wrapper">
+        <button 
+          className="pagination-button prev-button"
+          onClick={() => currentPage > 1 && paginate(currentPage - 1)}
+          disabled={currentPage === 1}
+        >
+          ←
+        </button>
+        
+        <div className="page-numbers">
+          {pageNumbers.map(number => (
+            <button
+              key={number}
+              className={`page-number ${currentPage === number ? 'active' : ''}`}
+              onClick={() => paginate(number)}
+            >
+              {number}
+            </button>
+          ))}
+        </div>
+        
+        <button 
+          className="pagination-button next-button"
+          onClick={() => currentPage < totalPages && paginate(currentPage + 1)}
+          disabled={currentPage === totalPages}
+        >
+          →
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // Main Jobs Component
 const Jobs = () => {
   const [selectedJob, setSelectedJob] = useState(null);
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const jobsPerPage = 6;
+
+  const indexOfLastJob = currentPage * jobsPerPage;
+  const indexOfFirstJob = indexOfLastJob - jobsPerPage;
+  const currentJobs = jobs.slice(indexOfFirstJob, indexOfLastJob);
+  const totalPages = Math.ceil(jobs.length / jobsPerPage);
+
+  const paginate = pageNumber => setCurrentPage(pageNumber);
+
   // Fetch jobs from backend
   useEffect(() => {
     const fetchJobs = async () => {
@@ -494,6 +553,13 @@ const Jobs = () => {
           <div className="jobs-header">
             <h1 className="jobs-title">Available Jobs</h1>
             <p className="jobs-subtitle">{jobs.length} job(s) available</p>
+            {totalPages > 1 && (
+              <Pagination 
+                currentPage={currentPage} 
+                totalPages={totalPages} 
+                paginate={paginate} 
+              />
+            )}
           </div>
           <div className="jobs-list">
             {jobs.length === 0 ? (
@@ -502,7 +568,7 @@ const Jobs = () => {
                 <p>Please check back later for new opportunities.</p>
               </div>
             ) : (
-              jobs.map((job) => (
+              currentJobs.map((job) => (
                 <JobCard key={job._id} job={job} onClick={handleJobClick} />
               ))
             )}
