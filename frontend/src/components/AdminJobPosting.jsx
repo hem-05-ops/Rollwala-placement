@@ -798,7 +798,7 @@ const getJobDescriptionUrl = (posting) => {
               <div className="form-row">
                 <div className="form-group">
                   <div className="eligibility-header">
-                    <label>Eligible Technology Tracks <span style={{fontWeight:'normal',fontSize:'0.85em'}}>(leave empty or select "All" to allow all)</span></label>
+                    <label>Eligible Technology Tracks</label>
                   </div>
                   <div className="checkbox-grid">
                     <label className="checkbox-item" style={{ fontWeight: 'bold' }}>
